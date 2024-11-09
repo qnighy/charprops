@@ -1,9 +1,11 @@
-import * as path from "$std/path/mod.ts";
 import { DB } from "sqlite";
+import { DB_PATH } from "./path.ts";
 
 const moduleDir = import.meta.dirname;
 if (moduleDir == null) {
   throw new Error(`Not a local module: ${import.meta.url}`);
 }
 
-export const db = new DB(path.join(moduleDir, "../../db.sqlite3"));
+export function connectSync(): DB {
+  return new DB(DB_PATH);
+}

@@ -1,12 +1,22 @@
 import * as path from "$std/path/mod.ts";
+import { DB } from "sqlite";
 import { safeCloseFile } from "../close-helper.ts";
 import { lines } from "../lines.ts";
 import { downloadUCD } from "../ucd/download.ts";
 import { deriveName } from "../ucd/name.ts";
 import { DerivableNameData, parseCodePoint, parseName, parseRow, RangeIdentifierStartData, RegularNameData } from "../ucd/parser.ts";
-import { db } from "./conn.ts";
+import { connectSync } from "./conn.ts";
 
 export async function setup() {
+  const db = connectSync();
+  try {
+    await setupImpl(db);
+  } finally {
+    db.close();
+  }
+}
+
+async function setupImpl(db: DB) {
   db.execute(`
     DROP INDEX IF EXISTS codepoint_taggings_by_tag;
     DROP TABLE IF EXISTS codepoint_taggings;
