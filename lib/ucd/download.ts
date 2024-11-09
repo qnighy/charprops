@@ -1,6 +1,7 @@
 import * as path from "$std/path/mod.ts";
 import { decompress } from "@fakoua/zip-ts";
 import { UNICODE_VERSION } from "./version.ts";
+import { safeCloseFile } from "../close-helper.ts";
 
 const moduleDir = import.meta.dirname;
 if (moduleDir == null) {
@@ -25,7 +26,6 @@ export async function downloadUCD(): Promise<string> {
     await Deno.mkdir(UCDDownloadPath, { recursive: true });
 
     const zipFile = await Deno.open(ucdZipDest, { create: true, write: true, truncate: true });
-    let closed = false;
     try {
       const response = await fetch(ucdZipSource);
       if (!response.ok) {
@@ -37,9 +37,8 @@ export async function downloadUCD(): Promise<string> {
       }
 
       await response.body.pipeTo(zipFile.writable);
-      closed = true;
     } finally {
-      if (!closed) zipFile.close();
+      safeCloseFile(zipFile);
     }
     touch(downloadedMarkFile);
   }

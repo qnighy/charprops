@@ -1,3 +1,5 @@
+import { getNNNN } from "./nnnn.ts";
+
 export type CodePoint = UnicodeCodePoint;
 export type UnicodeCodePoint = {
   type: "UnicodeCodePoint";
@@ -22,6 +24,6 @@ export function parseCodePoint(text: string): CodePoint | null {
 export function stringifyCodePoint(codepoint: CodePoint): string {
   switch (codepoint.type) {
     case "UnicodeCodePoint":
-      return `U+${codepoint.codepoint.toString(16).padStart(4, "0").toUpperCase()}`;
+      return `U+${getNNNN(codepoint.codepoint)}`;
   }
 }

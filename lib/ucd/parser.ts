@@ -1,3 +1,6 @@
+import { safeCloseFile } from "../close-helper.ts";
+import { lines } from "../lines.ts";
+
 export function parseRow(row: string): string[] | null {
   const commentPos = row.indexOf('#');
   if (commentPos >= 0) {
@@ -99,4 +102,27 @@ export function parseName(text: string): NameData {
     return DerivableNameData(enclosed);
   }
   return RegularNameData(text);
+}
+
+export type Jamos = Record<number, string>;
+
+export async function parseJamos(path: string): Promise<Jamos> {
+  const jamos: Jamos = {};
+  const file = await Deno.open(path);
+  try {
+    for await (const line of lines(file.readable)) {
+      const row = parseRow(line);
+      if (row == null) {
+        continue;
+      }
+      if (row.length < 2) {
+        throw new SyntaxError(`Invalid row: ${line}`);
+      }
+      const [codepointText, nameText] = row;
+      jamos[parseCodePoint(codepointText)] = nameText;
+    }
+  } finally {
+    safeCloseFile(file);
+  }
+  return jamos;
 }
