@@ -39,3 +39,16 @@ export function parseCodePointOrRange(text: string): CodePointOrRange {
     throw new SyntaxError(`Invalid code point range: ${text}`);
   }
 }
+
+export function parseUSV(text: string): number {
+  const cp = parseCodePoint(text);
+  if (0xD800 <= cp && cp < 0xE000) {
+    throw new SyntaxError(`Surrogate is not a USV: ${text}`);
+  }
+  return cp;
+}
+
+export function parseCodePointString(text: string): string {
+  const parts = text.split(/\s+/);
+  return parts.map((part) => String.fromCodePoint(parseUSV(part))).join('');
+}
