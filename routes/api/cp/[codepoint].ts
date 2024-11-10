@@ -9,20 +9,17 @@ export const handler = async (_req: Request, ctx: FreshContext): Promise<Respons
     return new Response(null, { status: 404 });
   }
 
-  const db = await dbPool.take();
-  try {
-    const result = await db.query<[codepoint: number, name: string]>("SELECT codepoint, name FROM codepoints WHERE codepoint = $1 LIMIT 1", [codepoint.codepoint]);
-    if (result.length === 0) {
-      // TODO
-      return new Response(null, { status: 404 });
-    }
-    const [[respCodepoint, name]] = result;
-    const respBody = {
-      codepoint: respCodepoint,
-      name,
-    };
-    return new Response(JSON.stringify(respBody), { headers: { "Content-Type": "application/json" } });
-  } finally {
-    await dbPool.release(db);
+  await using dbBorrow = await dbPool.take();
+  const db = dbBorrow.resource;
+  const result = await db.query<[codepoint: number, name: string]>("SELECT codepoint, name FROM codepoints WHERE codepoint = $1 LIMIT 1", [codepoint.codepoint]);
+  if (result.length === 0) {
+    // TODO
+    return new Response(null, { status: 404 });
   }
+  const [[respCodepoint, name]] = result;
+  const respBody = {
+    codepoint: respCodepoint,
+    name,
+  };
+  return new Response(JSON.stringify(respBody), { headers: { "Content-Type": "application/json" } });
 };

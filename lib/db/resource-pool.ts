@@ -1,4 +1,12 @@
-export type ResourceHandler<T> = {
+export type AnyDisposable = Disposable | AsyncDisposable | ClassicDisposable;
+export type ClassicDisposable = {
+  dispose(): void | Promise<void>;
+};
+
+export type ResourceHandler<T> = T extends AnyDisposable ? {
+  createResource: () => (Promise<T> | T);
+  disposeResource?: ((resource: T) => (Promise<void> | void)) | undefined;
+} : {
   createResource: () => (Promise<T> | T);
   disposeResource: (resource: T) => (Promise<void> | void);
 };
@@ -21,10 +29,15 @@ export class Pool<T> {
   #scalingDurationMillis: number;
 
   #freeResources: T[];
-  #busyResources: Set<T>;
+  #busyResources: Set<Borrow<T>>;
   #wakers: (() => void)[];
   #createCount: number;
   #resourcePlanner: ResourcePlanner;
+  /**
+   * Once dispose is initiated, resources should not be pushed back to #freeResources.
+   * Also, it tries as best not to respond to any take requests, but this is not necessarily guaranteed.
+   */
+  #disposingOrDisposed: boolean;
   constructor(options: PoolOptions<T>) {
     const { handler, minCount, maxCount } = options;
     this.#handler = handler;
@@ -37,9 +50,10 @@ export class Pool<T> {
     this.#wakers = [];
     this.#createCount = 0;
     this.#resourcePlanner = new ResourcePlanner();
+    this.#disposingOrDisposed = false;
   }
 
-  async take(): Promise<T> {
+  async take(): Promise<Borrow<T>> {
     const tookImmediate = this.tryTake();
     if (tookImmediate) {
       return tookImmediate;
@@ -55,15 +69,17 @@ export class Pool<T> {
     }
   }
 
-  tryTake(): T | undefined {
+  tryTake(): Borrow<T> | undefined {
+    this.#ensureActive();
     const freeResource = this.#freeResources.pop();
     if (freeResource) {
-      this.#busyResources.add(freeResource);
-      return freeResource;
+      const borrow = this.#wrapBorrow(freeResource);
+      this.#busyResources.add(borrow);
+      return borrow;
     }
   }
 
-  #waitAndTryTake(): Promise<T | undefined> {
+  #waitAndTryTake(): Promise<Borrow<T> | undefined> {
     return new Promise((resolve) => {
       this.#wakers.push(() => {
         // Ensure tryTake runs in the same microtask as the waker
@@ -72,15 +88,15 @@ export class Pool<T> {
     });
   }
 
-  async release(worker: T, options: ReleaseOptions = {}): Promise<void> {
+  async #release(borrow: Borrow<T>, options: ReleaseOptions = {}): Promise<void> {
     const { broken = false } = options;
-    if (!this.#busyResources.delete(worker)) {
+    if (!this.#busyResources.delete(borrow)) {
       throw new Error("This resource is not busy or not managed by this pool");
     }
-    if (broken || this.#resourceEnough()) {
-      await this.#handler.disposeResource(worker);
+    if (broken || this.#disposingOrDisposed || this.#resourceEnough()) {
+      await this.#disposeResource(borrow.resource);
     } else {
-      this.#freeResources.push(worker);
+      this.#freeResources.push(borrow.resource);
       this.#notifyOfFreeResources();
     }
   }
@@ -104,13 +120,15 @@ export class Pool<T> {
     return this.#freeResources.length + this.#busyResources.size + this.#createCount < this.#maxCount;
   }
 
-  async #createAndTakeResource(): Promise<T> {
+  async #createAndTakeResource(): Promise<Borrow<T>> {
+    this.#ensureActive();
     this.#createCount++;
     try {
       const resource = await this.#handler.createResource();
-      this.#busyResources.add(resource);
+      const borrow = this.#wrapBorrow(resource);
+      this.#busyResources.add(borrow);
       this.#recordCurrentScale();
-      return resource;
+      return borrow;
     } finally {
       this.#createCount--;
     }
@@ -126,6 +144,81 @@ export class Pool<T> {
   #currentScale(): number {
     this.#resourcePlanner.updateTime(new Date());
     return this.#resourcePlanner.currentCount ?? this.#minCount;
+  }
+
+  #ensureActive(): void {
+    if (this.#disposingOrDisposed) {
+      throw new Error("Cannot take a resource from a pool that is being disposed or has been disposed");
+    }
+  }
+
+  #wrapBorrow(resource: T): Borrow<T> {
+    const borrow = new Borrow(resource, async (borrow) => {
+      await this.#release(borrow);
+    });
+    this.#busyResources.add(borrow);
+    return borrow;
+  }
+
+  async #disposeResource(resource: T): Promise<void> {
+    if (this.#handler.disposeResource) {
+      await this.#handler.disposeResource(resource);
+    } else if (Symbol.dispose && typeof (resource as Disposable)[Symbol.dispose] === "function") {
+      (resource as Disposable)[Symbol.dispose]();
+    } else if (Symbol.asyncDispose && typeof (resource as AsyncDisposable)[Symbol.asyncDispose] === "function") {
+      await (resource as AsyncDisposable)[Symbol.asyncDispose]();
+    } else if (typeof (resource as ClassicDisposable).dispose === "function") {
+      await (resource as ClassicDisposable).dispose();
+    } else {
+      throw new Error("Unsure how to dispose of this resource");
+    }
+  }
+
+  async dispose(): Promise<void> {
+    if (this.#disposingOrDisposed) {
+      throw new Error("Tried to dispose a pool twice");
+    }
+    this.#disposingOrDisposed = true;
+    while (this.#freeResources.length > 0) {
+      const resource = this.#freeResources.pop()!;
+      await this.#disposeResource(resource);
+    }
+  }
+
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    if (Symbol.asyncDispose) {
+      Pool.prototype[Symbol.asyncDispose] = Pool.prototype.dispose;
+    }
+  }
+}
+
+export class Borrow<T> {
+  broken = false;
+  #inner: T;
+  #release: (borrow: Borrow<T>) => Promise<void>;
+  #disposed = false;
+  constructor(inner: T, release: (borrow: Borrow<T>) => Promise<void>) {
+    this.#inner = inner;
+    this.#release = release;
+  }
+
+  get resource(): T {
+    return this.#inner;
+  }
+
+  async dispose(): Promise<void> {
+    if (this.#disposed) {
+      throw new Error("This borrow has been disposed");
+    }
+    this.#disposed = true;
+    await this.#release(this);
+  }
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    if (Symbol.asyncDispose) {
+      Borrow.prototype[Symbol.asyncDispose] = Borrow.prototype.dispose;
+    }
   }
 }
 
