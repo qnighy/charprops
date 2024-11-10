@@ -96,3 +96,10 @@ export function deriveName(label: string, codepoint: number): string {
   }
   throw new Error(`Unknown label ${label} for codepoint ${nnnn}`);
 }
+
+export function deriveNoncharacterName(codepoint: number): string {
+  return `<noncharacter-${getNNNN(codepoint)}`
+}
+export function deriveReservedName(codepoint: number): string {
+  return `<reserved-${getNNNN(codepoint)}`
+}
