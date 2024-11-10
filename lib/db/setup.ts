@@ -5,6 +5,7 @@ import { deriveName } from "../ucd/name.ts";
 import { parseUnicodeData } from "../ucd/parser.ts";
 import { connectSync } from "./conn.ts";
 import { CustomDisposable } from "../raii.ts";
+import { compressFlags } from "./flags.ts";
 
 export async function setup() {
   using dbOwner = new CustomDisposable(connectSync(), (db) => db.close());
@@ -60,10 +61,18 @@ export async function setup() {
     const endCodepoint = codepointOrRange.type === "CodePointRange" ? codepointOrRange.end : startCodepoint;
     for (let codepoint = startCodepoint; codepoint <= endCodepoint; codepoint++) {
       const name = nameData.type === "DerivableName" ? deriveName(nameData.label, codepoint) : nameData.name;
+      const flags = compressFlags({
+        generalCategory: row.generalCategory,
+        canonicalCombiningClass: row.canonicalCombiningClass,
+        bidiClass: row.bidiClass,
+        decompositionType: row.decomposition?.decompositionType,
+        numericType: row.numeric?.numericType,
+        bidiMirrored: row.bidiMirrored,
+      });
       bulkRows.push({
         codepoint,
         name,
-        flags: 0,
+        flags: flags.flags1,
       });
       if (bulkRows.length >= 1000) {
         bulkInsertCodepoint(bulkRows);
