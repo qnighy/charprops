@@ -1,22 +1,14 @@
 import * as path from "$std/path/mod.ts";
-import { DB } from "sqlite";
-import { safeCloseFile } from "../close-helper.ts";
 import { lines } from "../lines.ts";
 import { downloadUCD } from "../ucd/download.ts";
 import { deriveName } from "../ucd/name.ts";
 import { DerivableNameData, parseCodePoint, parseName, parseRow, RangeIdentifierStartData, RegularNameData } from "../ucd/parser.ts";
 import { connectSync } from "./conn.ts";
+import { CustomDisposable } from "../raii.ts";
 
 export async function setup() {
-  const db = connectSync();
-  try {
-    await setupImpl(db);
-  } finally {
-    db.close();
-  }
-}
-
-async function setupImpl(db: DB) {
+  using dbOwner = new CustomDisposable(connectSync(), (db) => db.close());
+  const db = dbOwner.resource;
   db.execute(`
     DROP INDEX IF EXISTS codepoint_taggings_by_tag;
     DROP TABLE IF EXISTS codepoint_taggings;
@@ -48,72 +40,64 @@ async function setupImpl(db: DB) {
     name: string;
     flags: number;
   };
-  const insertCodepoint = db.prepareQuery<unknown[], Record<string, unknown>, InsertCodepointParams>(`
+  using insertCodepoint = new CustomDisposable(db.prepareQuery<unknown[], Record<string, unknown>, InsertCodepointParams>(`
     INSERT INTO codepoints (codepoint, name, flags)
     VALUES (:codepoint, :name, :flags);
-  `);
-  try {
-    const bulkInsertCodepoint = (rows: InsertCodepointParams[]) => {
-      db.transaction(() => {
-        for (const row of rows) {
-          insertCodepoint.execute(row);
-        }
-      });
-      console.log(`Inserted ${rows.length} codepoints`);
-    };
-    let bulkRows: InsertCodepointParams[] = [];
-    const unicodeData = await Deno.open(path.join(ucdPath, "UnicodeData.txt"));
-    try {
-      let lastRangeStart: { name: RangeIdentifierStartData, codepoint: number } | null = null;
-      for await (const line of lines(unicodeData.readable)) {
-        const dataElems = parseRow(line);
-        if (dataElems == null) {
-          continue;
-        }
-        if (dataElems.length < 2) {
-          throw new SyntaxError(`Invalid row: ${line}`);
-        }
-        const [codepointText, nameText] = dataElems;
-        const endCodepoint = parseCodePoint(codepointText);
-        let startCodepoint = endCodepoint;
-        const nameDataInput = parseName(nameText);
-        let nameData: RegularNameData | DerivableNameData;
-        if (lastRangeStart != null) {
-          if (nameDataInput.type !== "RangeIdentifierEnd" || nameDataInput.identifier !== lastRangeStart.name.identifier) {
-            throw new SyntaxError(`Expected range end of the same name as ${lastRangeStart.name.identifier}, got: ${nameText}`);
-          }
-          startCodepoint = lastRangeStart.codepoint;
-          lastRangeStart = null;
-          nameData = DerivableNameData(nameDataInput.identifier);
-        } else if (nameDataInput.type === "RangeIdentifierStart") {
-          lastRangeStart = { name: nameDataInput, codepoint: startCodepoint };
-          continue;
-        } else if (nameDataInput.type === "RangeIdentifierEnd") {
-          throw new SyntaxError(`Unexpected range end: ${nameText}`);
-        } else {
-          nameData = nameDataInput;
-        }
-        for (let codepoint = startCodepoint; codepoint <= endCodepoint; codepoint++) {
-          const name = nameData.type === "DerivableName" ? deriveName(nameData.label, codepoint) : nameData.name;
-          bulkRows.push({
-            codepoint,
-            name,
-            flags: 0,
-          });
-          if (bulkRows.length >= 1000) {
-            bulkInsertCodepoint(bulkRows);
-            bulkRows = [];
-          }
-        }
+  `), (query) => query.finalize());
+  const bulkInsertCodepoint = (rows: InsertCodepointParams[]) => {
+    db.transaction(() => {
+      for (const row of rows) {
+        insertCodepoint.resource.execute(row);
       }
-    } finally {
-      safeCloseFile(unicodeData);
+    });
+    console.log(`Inserted ${rows.length} codepoints`);
+  };
+  let bulkRows: InsertCodepointParams[] = [];
+  const unicodeData = await Deno.open(path.join(ucdPath, "UnicodeData.txt"));
+  let lastRangeStart: { name: RangeIdentifierStartData, codepoint: number } | null = null;
+  for await (const line of lines(unicodeData.readable)) {
+    const dataElems = parseRow(line);
+    if (dataElems == null) {
+      continue;
     }
-    if (bulkRows.length > 0) {
-      bulkInsertCodepoint(bulkRows);
+    if (dataElems.length < 2) {
+      throw new SyntaxError(`Invalid row: ${line}`);
     }
-  } finally {
-    insertCodepoint.finalize();
+    const [codepointText, nameText] = dataElems;
+    const endCodepoint = parseCodePoint(codepointText);
+    let startCodepoint = endCodepoint;
+    const nameDataInput = parseName(nameText);
+    let nameData: RegularNameData | DerivableNameData;
+    if (lastRangeStart != null) {
+      if (nameDataInput.type !== "RangeIdentifierEnd" || nameDataInput.identifier !== lastRangeStart.name.identifier) {
+        throw new SyntaxError(`Expected range end of the same name as ${lastRangeStart.name.identifier}, got: ${nameText}`);
+      }
+      startCodepoint = lastRangeStart.codepoint;
+      lastRangeStart = null;
+      nameData = DerivableNameData(nameDataInput.identifier);
+    } else if (nameDataInput.type === "RangeIdentifierStart") {
+      lastRangeStart = { name: nameDataInput, codepoint: startCodepoint };
+      continue;
+    } else if (nameDataInput.type === "RangeIdentifierEnd") {
+      throw new SyntaxError(`Unexpected range end: ${nameText}`);
+    } else {
+      nameData = nameDataInput;
+    }
+    for (let codepoint = startCodepoint; codepoint <= endCodepoint; codepoint++) {
+      const name = nameData.type === "DerivableName" ? deriveName(nameData.label, codepoint) : nameData.name;
+      bulkRows.push({
+        codepoint,
+        name,
+        flags: 0,
+      });
+      if (bulkRows.length >= 1000) {
+        bulkInsertCodepoint(bulkRows);
+        bulkRows = [];
+      }
+    }
+  }
+  if (bulkRows.length > 0) {
+    bulkInsertCodepoint(bulkRows);
   }
 }
 

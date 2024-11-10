@@ -1,7 +1,7 @@
 import * as path from "$std/path/mod.ts";
 import { decompress } from "@fakoua/zip-ts";
 import { UNICODE_VERSION } from "./version.ts";
-import { safeCloseFile } from "../close-helper.ts";
+import { AsyncTake, CustomAsyncDisposable, Take } from "../raii.ts";
 
 const moduleDir = import.meta.dirname;
 if (moduleDir == null) {
@@ -25,21 +25,19 @@ export async function downloadUCD(): Promise<string> {
   if (!alreadyDownloaded) {
     await Deno.mkdir(UCDDownloadPath, { recursive: true });
 
-    const zipFile = await Deno.open(ucdZipDest, { create: true, write: true, truncate: true });
-    try {
-      const response = await fetch(ucdZipSource);
-      if (!response.ok) {
-        throw new Error(`Failed to download UCD: ${response.status} ${response.statusText}`);
-      }
+    using zipFile = new Take(await Deno.open(ucdZipDest, { create: true, write: true, truncate: true }));
 
-      if (response.body == null) {
-        throw new Error("No response body");
-      }
-
-      await response.body.pipeTo(zipFile.writable);
-    } finally {
-      safeCloseFile(zipFile);
+    const response = await fetch(ucdZipSource);
+    await using body = new AsyncTake(new CustomAsyncDisposable(response.body, async (body) => await body?.cancel()));
+    if (!response.ok) {
+      throw new Error(`Failed to download UCD: ${response.status} ${response.statusText}`);
     }
+
+    if (body.borrow.resource == null) {
+      throw new Error("No response body");
+    }
+
+    await body.take().resource!.pipeTo(zipFile.take().writable);
     touch(downloadedMarkFile);
   }
 

@@ -4,7 +4,7 @@ import { DB } from "./worker-client.ts";
 
 const connectionHandler: ResourceHandler<DB> = {
   async createResource() {
-    return await DB.connect(DB_PATH);
+    return await DB.connect(DB_PATH, { mode: "read" });
   },
   async disposeResource(resource) {
     await resource.close();
