@@ -2,7 +2,7 @@ import * as path from "$std/path/mod.ts";
 import { lines } from "../lines.ts";
 import { downloadUCD } from "../ucd/download.ts";
 import { deriveName } from "../ucd/name.ts";
-import { DerivableNameData, parseCodePoint, parseName, parseRow, RangeIdentifierStartData, RegularNameData } from "../ucd/parser.ts";
+import { parseUnicodeData } from "../ucd/parser.ts";
 import { connectSync } from "./conn.ts";
 import { CustomDisposable } from "../raii.ts";
 
@@ -54,35 +54,10 @@ export async function setup() {
   };
   let bulkRows: InsertCodepointParams[] = [];
   const unicodeData = await Deno.open(path.join(ucdPath, "UnicodeData.txt"));
-  let lastRangeStart: { name: RangeIdentifierStartData, codepoint: number } | null = null;
-  for await (const line of lines(unicodeData.readable)) {
-    const dataElems = parseRow(line);
-    if (dataElems == null) {
-      continue;
-    }
-    if (dataElems.length < 2) {
-      throw new SyntaxError(`Invalid row: ${line}`);
-    }
-    const [codepointText, nameText] = dataElems;
-    const endCodepoint = parseCodePoint(codepointText);
-    let startCodepoint = endCodepoint;
-    const nameDataInput = parseName(nameText);
-    let nameData: RegularNameData | DerivableNameData;
-    if (lastRangeStart != null) {
-      if (nameDataInput.type !== "RangeIdentifierEnd" || nameDataInput.identifier !== lastRangeStart.name.identifier) {
-        throw new SyntaxError(`Expected range end of the same name as ${lastRangeStart.name.identifier}, got: ${nameText}`);
-      }
-      startCodepoint = lastRangeStart.codepoint;
-      lastRangeStart = null;
-      nameData = DerivableNameData(nameDataInput.identifier);
-    } else if (nameDataInput.type === "RangeIdentifierStart") {
-      lastRangeStart = { name: nameDataInput, codepoint: startCodepoint };
-      continue;
-    } else if (nameDataInput.type === "RangeIdentifierEnd") {
-      throw new SyntaxError(`Unexpected range end: ${nameText}`);
-    } else {
-      nameData = nameDataInput;
-    }
+  for await (const row of parseUnicodeData(lines(unicodeData.readable))) {
+    const { codepoint: codepointOrRange, name: nameData } = row;
+    const startCodepoint = codepointOrRange.type === "CodePointRange" ? codepointOrRange.start : codepointOrRange.codepoint;
+    const endCodepoint = codepointOrRange.type === "CodePointRange" ? codepointOrRange.end : startCodepoint;
     for (let codepoint = startCodepoint; codepoint <= endCodepoint; codepoint++) {
       const name = nameData.type === "DerivableName" ? deriveName(nameData.label, codepoint) : nameData.name;
       bulkRows.push({
