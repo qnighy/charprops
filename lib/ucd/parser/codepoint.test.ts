@@ -1,5 +1,5 @@
 import { assertEquals, assertThrows } from "$std/assert/mod.ts";
-import { CodePointData, CodePointRange, DerivableNameData, parseCodePoint, parseCodePointOrRange, parseName, RangeIdentifierEndData, RangeIdentifierStartData, RegularNameData } from "./parser.ts";
+import { CodePointData, CodePointRange, parseCodePoint, parseCodePointOrRange } from "./codepoint.ts";
 
 Deno.test("parseCodePoint: valid code points", () => {
   assertEquals(parseCodePoint("0000"), 0x0000);
@@ -22,20 +22,4 @@ Deno.test("parseCodePointOrRange: single code points", () => {
 
 Deno.test("parseCodePointOrRange: code point ranges", () => {
   assertEquals(parseCodePointOrRange("12345..12347"), CodePointRange(0x12345, 0x12347));
-});
-
-Deno.test("parseName: regular names", () => {
-  assertEquals(parseName("LATIN CAPITAL LETTER A"), RegularNameData("LATIN CAPITAL LETTER A"));
-});
-
-Deno.test("parseName: derivable names", () => {
-  assertEquals(parseName("<control>"), DerivableNameData("control"));
-});
-
-Deno.test("parseName: range start", () => {
-  assertEquals(parseName("<CJK Ideograph, First>"), RangeIdentifierStartData("CJK Ideograph"));
-});
-
-Deno.test("parseName: range end", () => {
-  assertEquals(parseName("<CJK Ideograph, Last>"), RangeIdentifierEndData("CJK Ideograph"));
 });
