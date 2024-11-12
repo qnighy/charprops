@@ -31,6 +31,8 @@ jobs:
       - name: Upload to Deno Deploy
         uses: denoland/deployctl@v1
         with:
+          project: "qnighy-charprops"
+          entrypoint: "main.ts"
           root: "."
           
           
