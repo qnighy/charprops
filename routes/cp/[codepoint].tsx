@@ -25,7 +25,7 @@ export const handler: Handlers<CodePointPageData> = {
 
     await using dbBorrow = await dbPool.take();
     const db = dbBorrow.resource;
-    const codepointData = await readCodePoint(db, codepoint.codepoint);
+    const codepointData = readCodePoint(db, codepoint.codepoint);
     return ctx.render({ codepoint, codepointData });
   },
 };

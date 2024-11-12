@@ -1,13 +1,13 @@
 import { DB_PATH } from "./path.ts";
 import { Pool, ResourceHandler } from "./resource-pool.ts";
-import { DB } from "./worker-client.ts";
+import { DB } from "sqlite";
 
 const connectionHandler: ResourceHandler<DB> = {
-  async createResource() {
-    return await DB.connect(DB_PATH, { mode: "read" });
+  createResource() {
+    return new DB(DB_PATH, { mode: "read" });
   },
-  async disposeResource(resource) {
-    await resource.close();
+  disposeResource(resource) {
+    resource.close();
   },
 };
 
