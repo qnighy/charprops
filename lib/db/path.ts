@@ -1,4 +1,4 @@
-import * as path from "$std/path/mod.ts";
+import * as path from "@std/path";
 
 const moduleDir = import.meta.dirname;
 if (moduleDir == null) {

@@ -1,4 +1,4 @@
-import * as path from "$std/path/mod.ts";
+import * as path from "@std/path";
 import { lines } from "../lines.ts";
 import { downloadUCD } from "../ucd/download.ts";
 import { deriveName } from "../ucd/name.ts";

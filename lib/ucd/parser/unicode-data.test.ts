@@ -1,4 +1,4 @@
-import { assertEquals } from "$std/assert/mod.ts";
+import { assertEquals } from "@std/assert";
 import { CodePointData, CodePointRange } from "./codepoint.ts";
 import { DerivableNameData, RegularNameData } from "./name.ts";
 import { parseUnicodeData } from "./unicode-data.ts";

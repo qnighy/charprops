@@ -1,4 +1,4 @@
-import { assertEquals } from "$std/assert/mod.ts";
+import { assertEquals } from "@std/assert";
 import { stringifyCodePoint } from "./codepoint.ts";
 import { parseCodePoint, UnicodeCodePoint } from "./codepoint.ts";
 

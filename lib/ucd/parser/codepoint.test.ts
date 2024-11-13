@@ -1,4 +1,4 @@
-import { assertEquals, assertThrows } from "$std/assert/mod.ts";
+import { assertEquals, assertThrows } from "@std/assert";
 import { CodePointData, CodePointRange, parseCodePoint, parseCodePointOrRange } from "./codepoint.ts";
 
 Deno.test("parseCodePoint: valid code points", () => {

@@ -1,4 +1,4 @@
-import { assertEquals } from "$std/assert/mod.ts";
+import { assertEquals } from "@std/assert";
 import { DerivableNameData, parseName, RangeIdentifierEndData, RangeIdentifierStartData, RegularNameData } from "./name.ts";
 
 Deno.test("parseName: regular names", () => {

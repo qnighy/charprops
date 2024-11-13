@@ -1,6 +1,6 @@
 import { lines } from "./lines.ts";
-import { delay } from "$std/async/mod.ts";
-import { assertEquals } from "$std/assert/mod.ts";
+import { delay } from "@std/async";
+import { assertEquals } from "@std/assert";
 
 function chunkedStream(chunks: (string | Uint8Array)[]): ReadableStream<Uint8Array> {
   return new ReadableStream({

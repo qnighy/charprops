@@ -1,4 +1,4 @@
-import * as path from "$std/path/mod.ts";
+import * as path from "@std/path";
 import { decompress } from "@fakoua/zip-ts";
 import { UNICODE_VERSION } from "./version.ts";
 import { AsyncTake, CustomAsyncDisposable, Take } from "../raii.ts";
