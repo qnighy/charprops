@@ -5,6 +5,10 @@ function log(..._args: unknown[]) {
   // console.debug(...arguments);
 }
 
+function log2(..._args: unknown[]) {
+  console.debug(...arguments);
+}
+
 type FileEntry = {
   handle: Deno.FsFile;
   url: URL;
@@ -96,15 +100,19 @@ export class AsyncDenoVFS extends VFS.Base {
         await file.handle.seek(iOffset, Deno.SeekMode.Start);
         const numRead = await file.handle.read(pData)
         if (numRead === null) {
+          log2(`xRead(${file.url}, ${pData.byteLength}, ${iOffset}) -> EOF`);
           pData.fill(0);
           return VFS.SQLITE_IOERR_SHORT_READ;
         } else if (numRead < pData.byteLength) {
+          log2(`xRead(${file.url}, ${pData.byteLength}, ${iOffset}) -> Short,`, pData.subarray(0, numRead).toString());
           pData.fill(0, numRead);
           return VFS.SQLITE_IOERR_SHORT_READ;
         }
 
+        log2(`xRead(${file.url}, ${pData.byteLength}, ${iOffset}) -> OK,`, pData.toString());
         return VFS.SQLITE_OK;
       } catch (e) {
+        log2(`xRead(${file.url}, ${pData.byteLength}, ${iOffset}) ->`, e);
         console.error(e);
         return VFS.SQLITE_IOERR;
       }
@@ -181,10 +189,17 @@ export class AsyncDenoVFS extends VFS.Base {
       }
       log(`xFileSize ${file.url}`);
 
-      const { size } = await file.handle.stat();
+      try {
+        const { size } = await file.handle.stat();
 
-      pSize64.setBigInt64(0, BigInt(size), true);
-      return VFS.SQLITE_OK;
+        pSize64.setBigInt64(0, BigInt(size), true);
+        log2(`xFileSize(${file.url}) ->`, size);
+        return VFS.SQLITE_OK;
+      } catch (e) {
+        log2(`xFileSize(${file.url}) ->`, e);
+        console.error(e);
+        return VFS.SQLITE_IOERR;
+      }
     });
   }
 
