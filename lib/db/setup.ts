@@ -1,4 +1,3 @@
-import * as path from "@std/path";
 import { lines } from "../lines.ts";
 import { downloadUCD } from "../ucd/download.ts";
 import { deriveName } from "../ucd/name.ts";
@@ -33,7 +32,7 @@ export async function setup() {
     CREATE INDEX codepoint_taggings_by_tag ON codepoint_taggings (tag_id, tag_value);
   `);
 
-  const ucdPath = await downloadUCD();
+  const unicodeDataPath = await downloadUCD("UnicodeData.txt");
 
   type InsertCodepointParams = {
     codepoint: number;
@@ -64,7 +63,7 @@ export async function setup() {
     console.log(`Inserted ${rows.length} codepoints`);
   };
   let bulkRows: InsertCodepointParams[] = [];
-  const unicodeData = await Deno.open(path.join(ucdPath, "UnicodeData.txt"));
+  const unicodeData = await Deno.open(unicodeDataPath);
   for await (const row of parseUnicodeData(lines(unicodeData.readable))) {
     const { codepoint: codepointOrRange, name: nameData } = row;
     const startCodepoint = codepointOrRange.type === "CodePointRange" ? codepointOrRange.start : codepointOrRange.codepoint;

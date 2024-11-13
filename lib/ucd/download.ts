@@ -1,4 +1,5 @@
 import * as path from "@std/path";
+import { expandGlob } from "@std/fs";
 import { decompress } from "@fakoua/zip-ts";
 import { UNICODE_VERSION } from "./version.ts";
 import { AsyncTake, CustomAsyncDisposable, Take } from "../raii.ts";
@@ -10,24 +11,110 @@ if (moduleDir == null) {
 
 const UCDDownloadPath = path.join(moduleDir, "..", "..", "ucd", UNICODE_VERSION);
 
-export async function downloadUCD(): Promise<string> {
-  const ucdZipSource = `https://www.unicode.org/Public/${UNICODE_VERSION}/ucd/UCD.zip`;
-  const ucdZipDest = path.join(UCDDownloadPath, "UCD.zip");
-  const downloadedMarkFile = path.join(UCDDownloadPath, "UCD.zip.downloaded");
-  const extractedMarkFile = path.join(UCDDownloadPath, "UCD.zip.extracted");
+export type UCDZipFilename = "UCD.zip";
+export type UCDFilename =
+  | "ArabicShaping.txt"
+  | "BidiBrackets.txt"
+  | "BidiCharacterTest.txt"
+  | "BidiMirroring.txt"
+  | "BidiTest.txt"
+  | "Blocks.txt"
+  | "CJKRadicals.txt"
+  | "CaseFolding.txt"
+  | "CompositionExclusions.txt"
+  | "DerivedAge.txt"
+  | "DerivedCoreProperties.txt"
+  | "DerivedNormalizationProps.txt"
+  | "DoNotEmit.txt"
+  | "EastAsianWidth.txt"
+  | "EmojiSources.txt"
+  | "EquivalentUnifiedIdeograph.txt"
+  | "HangulSyllableType.txt"
+  | "Index.txt"
+  | "IndicPositionalCategory.txt"
+  | "IndicSyllabicCategory.txt"
+  | "Jamo.txt"
+  | "LineBreak.txt"
+  | "NameAliases.txt"
+  | "NamedSequences.txt"
+  | "NamedSequencesProv.txt"
+  | "NamesList.html"
+  | "NamesList.txt"
+  | "NormalizationCorrections.txt"
+  | "NormalizationTest.txt"
+  | "NushuSources.txt"
+  | "PropList.txt"
+  | "PropertyAliases.txt"
+  | "PropertyValueAliases.txt"
+  | "ReadMe.txt"
+  | "ScriptExtensions.txt"
+  | "Scripts.txt"
+  | "SpecialCasing.txt"
+  | "StandardizedVariants.txt"
+  | "TangutSources.txt"
+  | "USourceData.txt"
+  | "USourceGlyphs.pdf"
+  | "USourceRSChart.pdf"
+  | "UnicodeData.txt"
+  | "Unikemet.txt"
+  | "VerticalOrientation.txt"
+  | "auxiliary/GraphemeBreakProperty.txt"
+  | "auxiliary/GraphemeBreakTest.html"
+  | "auxiliary/GraphemeBreakTest.txt"
+  | "auxiliary/LineBreakTest.html"
+  | "auxiliary/LineBreakTest.txt"
+  | "auxiliary/SentenceBreakProperty.txt"
+  | "auxiliary/SentenceBreakTest.html"
+  | "auxiliary/SentenceBreakTest.txt"
+  | "auxiliary/WordBreakProperty.txt"
+  | "auxiliary/WordBreakTest.html"
+  | "auxiliary/WordBreakTest.txt"
+  | "emoji/ReadMe.txt"
+  | "emoji/emoji-data.txt"
+  | "emoji/emoji-variation-sequences.txt"
+  | "extracted/DerivedBidiClass.txt"
+  | "extracted/DerivedBinaryProperties.txt"
+  | "extracted/DerivedCombiningClass.txt"
+  | "extracted/DerivedDecompositionType.txt"
+  | "extracted/DerivedEastAsianWidth.txt"
+  | "extracted/DerivedGeneralCategory.txt"
+  | "extracted/DerivedJoiningGroup.txt"
+  | "extracted/DerivedJoiningType.txt"
+  | "extracted/DerivedLineBreak.txt"
+  | "extracted/DerivedName.txt"
+  | "extracted/DerivedNumericType.txt"
+  | "extracted/DerivedNumericValues.txt";
 
-  const alreadyExtracted = await fileExists(extractedMarkFile);
-  if (alreadyExtracted) {
-    return UCDDownloadPath;
+export type UnihanZipFilename = "Unihan.zip";
+export type UnihanFilename =
+  | "Unihan_DictionaryIndices.txt"
+  | "Unihan_DictionaryLikeData.txt"
+  | "Unihan_IRGSources.txt"
+  | "Unihan_NumericValues.txt"
+  | "Unihan_OtherMappings.txt"
+  | "Unihan_RadicalStrokeCounts.txt"
+  | "Unihan_Readings.txt"
+  | "Unihan_Variants.txt";
+
+export async function downloadUCD(filename: UCDZipFilename | UCDFilename | UnihanZipFilename | UnihanFilename): Promise<string> {
+  if (filename.startsWith("Unihan_")) {
+    await downloadUnihanAll();
+    return path.join(UCDDownloadPath, filename.replace("/", path.SEPARATOR));
   }
 
-  const alreadyDownloaded = await fileExists(downloadedMarkFile);
-  if (!alreadyDownloaded) {
-    await Deno.mkdir(UCDDownloadPath, { recursive: true });
+  const ucdSource = `https://www.unicode.org/Public/${UNICODE_VERSION}/ucd/${filename}`;
+  const ucdDist = path.join(UCDDownloadPath, filename.replace("/", path.SEPARATOR));
+  await using ucdDistTmp = new AsyncTake(tmpPath());
+  await Deno.mkdir(path.dirname(ucdDist), { recursive: true });
 
-    using zipFile = new Take(await Deno.open(ucdZipDest, { create: true, write: true, truncate: true }));
+  const alreadyDownloaded = await fileExists(ucdDist);
+  if (alreadyDownloaded) {
+    return ucdDist;
+  }
+  {
+    using distFile = new Take(await Deno.open(ucdDistTmp.borrow.path, { create: true, write: true, truncate: true }));
 
-    const response = await fetch(ucdZipSource);
+    const response = await fetch(ucdSource);
     await using body = new AsyncTake(new CustomAsyncDisposable(response.body, async (body) => await body?.cancel()));
     if (!response.ok) {
       throw new Error(`Failed to download UCD: ${response.status} ${response.statusText}`);
@@ -37,18 +124,56 @@ export async function downloadUCD(): Promise<string> {
       throw new Error("No response body");
     }
 
-    await body.take().resource!.pipeTo(zipFile.take().writable);
-    touch(downloadedMarkFile);
+    await body.take().resource!.pipeTo(distFile.take().writable);
   }
+  await Deno.rename(ucdDistTmp.take().path, ucdDist);
 
-  const success = await decompress(ucdZipDest, UCDDownloadPath, { overwrite: true });
+  return ucdDist;
+}
+
+async function downloadUnihanAll(): Promise<void> {
+  const unihanZipPath = await downloadUCD("Unihan.zip");
+
+  await using unihanExtractTmp = tmpPath();
+  await Deno.mkdir(unihanExtractTmp.path, { recursive: true });
+
+  const success = await decompress(unihanZipPath, unihanExtractTmp.path);
   if (success === false) {
-    throw new Error("Failed to decompress UCD.zip");
+    throw new Error("Failed to decompress Unihan.zip");
   }
 
-  touch(extractedMarkFile);
+  for await (const entry of expandGlob("**/*", { root: unihanExtractTmp.path })) {
+    if (entry.isDirectory) {
+      continue;
+    }
+    const relpath = path.relative(unihanExtractTmp.path, entry.path);
+    const dest = path.join(UCDDownloadPath, "Unihan_" + relpath);
+    await Deno.mkdir(path.dirname(dest), { recursive: true });
+    await Deno.rename(entry.path, dest);
+  }
+}
 
-  return UCDDownloadPath;
+class TmpPath implements AsyncDisposable {
+  #path: string;
+  constructor(path: string) {
+    this.#path = path;
+  }
+
+  get path(): string {
+    return this.#path;
+  }
+
+  async [Symbol.asyncDispose]() {
+    await Deno.remove(this.#path, { recursive: true });
+  }
+}
+
+function tmpPath(): TmpPath {
+  let randomName = "";
+  for (let i = 0; i < 16; i++) {
+    randomName += ((Math.random() * 36) | 0).toString(36);
+  }
+  return new TmpPath(path.join(UCDDownloadPath, "tmp_" + randomName));
 }
 
 async function fileExists(path: string): Promise<boolean> {
@@ -61,7 +186,4 @@ async function fileExists(path: string): Promise<boolean> {
     }
     throw e;
   }
-}
-async function touch(path: string): Promise<void> {
-  await Deno.writeTextFile(path, "");
 }
