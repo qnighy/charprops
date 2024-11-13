@@ -149,13 +149,17 @@ export class AsyncConnection implements AsyncDisposable {
   }
 
   async *executeIterPositional(sql: string, params?: SQLiteParams): AsyncIterableIterator<SQLiteRowPositional> {
-    for await (await using stmt of this.prepareIter(sql)) {
+    for await (const stmt_ of this.prepareIter(sql)) {
+      // Workaround for await using in for-of loop, whose implementation in current Deno is broken
+      await using stmt = stmt_;
       yield* stmt.executeIterPositional(params);
     }
   }
 
   async *executeIter(sql: string, params?: SQLiteParams): AsyncIterableIterator<SQLiteRow> {
-    for await (await using stmt of this.prepareIter(sql)) {
+    for await (const stmt_ of this.prepareIter(sql)) {
+      // Workaround for await using in for-of loop, whose implementation in current Deno is broken
+      await using stmt = stmt_;
       yield* stmt.executeIter(params);
     }
   }
@@ -177,7 +181,9 @@ export class AsyncConnection implements AsyncDisposable {
   }
 
   async execute(sql: string, params?: SQLiteParams): Promise<void> {
-    for await (await using stmt of this.prepareIter(sql)) {
+    for await (const stmt_ of this.prepareIter(sql)) {
+      // Workaround for await using in for-of loop, whose implementation in current Deno is broken
+      await using stmt = stmt_;
       await stmt.execute(params);
     }
   }

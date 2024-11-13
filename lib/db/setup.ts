@@ -3,14 +3,13 @@ import { lines } from "../lines.ts";
 import { downloadUCD } from "../ucd/download.ts";
 import { deriveName } from "../ucd/name.ts";
 import { parseUnicodeData } from "../ucd/parser.ts";
-import { connectSync } from "./conn.ts";
-import { CustomDisposable } from "../raii.ts";
+import { DB_PATH } from "./path.ts";
+import { sqlite } from "./pool.ts";
 import { compressFlags } from "./flags.ts";
 
 export async function setup() {
-  using dbOwner = new CustomDisposable(connectSync(), (db) => db.close());
-  const db = dbOwner.resource;
-  db.execute(`
+  await using db = await sqlite.open(DB_PATH, { write: true, create: true });
+  await db.execute(`
     DROP INDEX IF EXISTS codepoint_taggings_by_tag;
     DROP TABLE IF EXISTS codepoint_taggings;
     DROP INDEX IF EXISTS codepoints_name;
@@ -41,16 +40,27 @@ export async function setup() {
     name: string;
     flags: number;
   };
-  using insertCodepoint = new CustomDisposable(db.prepareQuery<unknown[], Record<string, unknown>, InsertCodepointParams>(`
+  await using insertCodepoint = await db.prepare(`
     INSERT INTO codepoints (codepoint, name, flags)
     VALUES (:codepoint, :name, :flags);
-  `), (query) => query.finalize());
-  const bulkInsertCodepoint = (rows: InsertCodepointParams[]) => {
-    db.transaction(() => {
+  `);
+  const bulkInsertCodepoint = async (rows: InsertCodepointParams[]) => {
+    let gotError = false;
+    await db.execute("BEGIN TRANSACTION;");
+    try {
       for (const row of rows) {
-        insertCodepoint.resource.execute(row);
+        await insertCodepoint.execute(row);
       }
-    });
+    } catch (e) {
+      gotError = true;
+      throw e;
+    } finally {
+      if (gotError) {
+        await db.execute("ROLLBACK;");
+      } else {
+        await db.execute("COMMIT;");
+      }
+    }
     console.log(`Inserted ${rows.length} codepoints`);
   };
   let bulkRows: InsertCodepointParams[] = [];
@@ -75,13 +85,13 @@ export async function setup() {
         flags: flags.flags1,
       });
       if (bulkRows.length >= 1000) {
-        bulkInsertCodepoint(bulkRows);
+        await bulkInsertCodepoint(bulkRows);
         bulkRows = [];
       }
     }
   }
   if (bulkRows.length > 0) {
-    bulkInsertCodepoint(bulkRows);
+    await bulkInsertCodepoint(bulkRows);
   }
 }
 
