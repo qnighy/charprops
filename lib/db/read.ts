@@ -1,7 +1,7 @@
+import { AsyncConnection } from "../sqlite.ts";
 import { deriveNoncharacterName, deriveReservedName } from "../ucd/name.ts";
 import type { BidiClass, DecompositionType, GeneralCategoryAbbr, NumericType } from "../ucd/parser.ts";
 import { expandFlags } from "./flags.ts";
-import { DB } from "sqlite";
 
 export type CodePointData = {
   codepoint: number;
@@ -14,8 +14,12 @@ export type CodePointData = {
   bidiMirrored: boolean;
 };
 
-export function readCodePoint(db: DB, codepoint: number): CodePointData {
-  const result = db.query<[codepoint: number, name: string, flags1: number]>("SELECT codepoint, name, flags FROM codepoints WHERE codepoint = $1 LIMIT 1", [codepoint]);
+export async function readCodePoint(db: AsyncConnection, codepoint: number): Promise<CodePointData> {
+  const result = (await db.executeRows("SELECT codepoint, name, flags FROM codepoints WHERE codepoint = :codepoint LIMIT 1", { codepoint })) as {
+    codepoint: number;
+    name: string;
+    flags: number;
+  }[];
   if (result.length === 0) {
     // TODO: branch for noncharacters should be unnecessary here
     // once PropList.txt is integrated.
@@ -35,7 +39,7 @@ export function readCodePoint(db: DB, codepoint: number): CodePointData {
       bidiMirrored: false,
     };
   }
-  const [[respCodepoint, name, flags1]] = result;
+  const { codepoint: respCodepoint, name, flags: flags1 } = result[0];
   const expandedFlags = expandFlags({ flags1 });
   return {
     codepoint: respCodepoint,
