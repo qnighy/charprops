@@ -107,7 +107,6 @@ export class AsyncDenoVFS extends VFS.Base {
             return VFS.SQLITE_IOERR_SHORT_READ;
           }
           readPos += numRead;
-          return VFS.SQLITE_IOERR_SHORT_READ;
         }
 
         log2(`xRead(${file.url}, ${pData.byteLength}, ${iOffset}) -> OK,`, pData.toString());
