@@ -12,6 +12,6 @@ export const handler = async (_req: Request, ctx: FreshContext): Promise<Respons
 
   await using dbBorrow = await dbPool.take();
   const db = dbBorrow.resource;
-  const data = readCodePoint(db, codepoint.codepoint);
+  const data = await readCodePoint(db, codepoint.codepoint);
   return new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
 };

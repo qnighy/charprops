@@ -6,7 +6,7 @@ export const sqlite = new AsyncSQLiteWrapper(AsyncSQLite);
 
 const connectionHandler: ResourceHandler<AsyncConnection> = {
   createResource() {
-    return sqlite.open(DB_PATH);
+    return sqlite.open(DB_PATH, { write: false, create: false });
   },
 };
 
