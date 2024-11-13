@@ -98,14 +98,15 @@ export class AsyncDenoVFS extends VFS.Base {
 
       try {
         await file.handle.seek(iOffset, Deno.SeekMode.Start);
-        const numRead = await file.handle.read(pData)
-        if (numRead === null) {
-          log2(`xRead(${file.url}, ${pData.byteLength}, ${iOffset}) -> EOF`);
-          pData.fill(0);
-          return VFS.SQLITE_IOERR_SHORT_READ;
-        } else if (numRead < pData.byteLength) {
-          log2(`xRead(${file.url}, ${pData.byteLength}, ${iOffset}) -> Short,`, pData.subarray(0, numRead).toString());
-          pData.fill(0, numRead);
+        let readPos = 0;
+        while (readPos < pData.byteLength) {
+          const numRead = await file.handle.read(pData.subarray(readPos));
+          if (numRead === null) {
+            log2(`xRead(${file.url}, ${pData.byteLength}, ${iOffset}) -> Short,`, pData.subarray(0, readPos).toString());
+            pData.fill(0, readPos);
+            return VFS.SQLITE_IOERR_SHORT_READ;
+          }
+          readPos += numRead;
           return VFS.SQLITE_IOERR_SHORT_READ;
         }
 
@@ -130,11 +131,10 @@ export class AsyncDenoVFS extends VFS.Base {
 
       try {
         await file.handle.seek(iOffset, Deno.SeekMode.Start);
-        const numWritten = await file.handle.write(pData);
-        if (numWritten === null) {
-          return VFS.SQLITE_IOERR;
-        } else if (numWritten < pData.byteLength) {
-          return VFS.SQLITE_IOERR;
+        let writePos = 0;
+        while (writePos < pData.byteLength) {
+          const numWritten = await file.handle.write(pData.subarray(writePos));
+          writePos += numWritten;
         }
 
         return VFS.SQLITE_OK;
