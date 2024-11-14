@@ -3,11 +3,13 @@ import { deriveNoncharacterName, deriveReservedName } from "../ucd/name.ts";
 import { compressFlags, type CompressedCodePointData } from "../flags.ts";
 
 export async function readCodePoint(db: AsyncConnection, codepoint: number): Promise<CompressedCodePointData> {
-  const result = (await db.executeRows("SELECT codepoint, name, flags1 FROM codepoints WHERE codepoint = :codepoint LIMIT 1", { codepoint })) as {
+  const result = await db.executeRows<{
+    codepoint: number;
+  }, {
     codepoint: number;
     name: string;
     flags1: number;
-  }[];
+  }>("SELECT codepoint, name, flags1 FROM codepoints WHERE codepoint = :codepoint LIMIT 1", { codepoint });
   if (result.length === 0) {
     // TODO: branch for noncharacters should be unnecessary here
     // once PropList.txt is integrated.

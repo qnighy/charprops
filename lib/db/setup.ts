@@ -52,7 +52,11 @@ async function setupUnicodeData(db: AsyncConnection) {
     name: string;
     flags1: number;
   };
-  await using insertCodepoint = await db.prepare(`
+  await using insertCodepoint = await db.prepare<{
+    codepoint: number;
+    name: string;
+    flags1: number;
+  }>(`
     INSERT INTO codepoints (codepoint, name, flags1)
     VALUES (:codepoint, :name, :flags1);
   `);
@@ -93,7 +97,15 @@ async function setupTags(db: AsyncConnection): Promise<Record<string, number>> {
   type InsertTagParams = {
     tag_name: string;
   };
-  await using insertTag = await db.prepare(`
+  await using insertTag = await db.prepare<{
+    tag_name: string;
+  }, {
+    id: number;
+    tag_name: string;
+  }, [
+    id: number,
+    tag_name: string
+  ]>(`
     INSERT INTO tags (tag_name)
     VALUES (:tag_name)
     RETURNING id, tag_name;
@@ -103,7 +115,7 @@ async function setupTags(db: AsyncConnection): Promise<Record<string, number>> {
   const bulkInsertTag = new AsyncFlusher<InsertTagParams>(async (rows) => {
     await db.transaction(async () => {
       for (const row of rows) {
-        const rows = (await insertTag.executeRows(row)) as { id: number; tag_name: string }[];
+        const rows = await insertTag.executeRows(row);
         tagIds[rows[0].tag_name] = rows[0].id;
       }
     });
@@ -118,12 +130,17 @@ async function setupTags(db: AsyncConnection): Promise<Record<string, number>> {
 }
 
 async function setupCodepointTags(db: AsyncConnection, tagIds: Record<string, number>) {
-  type GetCodepointRow = {
+  await using getCodepointsInBatch = await db.prepare<{
+    after: number;
+  }, {
     codepoint: number;
     name: string;
     flags1: number;
-  };
-  await using getCodepointsInBatch = await db.prepare(`
+  }, [
+    codepoint: number,
+    name: string,
+    flags1: number
+  ]>(`
     SELECT codepoint, name, flags1 FROM codepoints
     WHERE codepoint > :after
     ORDER BY codepoint
@@ -133,7 +150,10 @@ async function setupCodepointTags(db: AsyncConnection, tagIds: Record<string, nu
     codepoint: number;
     tag_id: number;
   };
-  await using insertCodepointTagging = await db.prepare(`
+  await using insertCodepointTagging = await db.prepare<{
+    codepoint: number;
+    tag_id: number;
+  }>(`
     INSERT INTO codepoint_taggings (codepoint, tag_id)
     VALUES (:codepoint, :tag_id);
   `);
@@ -149,7 +169,7 @@ async function setupCodepointTags(db: AsyncConnection, tagIds: Record<string, nu
   }, 1000);
   let after = -1;
   while (true) {
-    const codepoints = (await getCodepointsInBatch.executeRows({ after })) as GetCodepointRow[];
+    const codepoints = await getCodepointsInBatch.executeRows({ after });
     if (codepoints.length === 0) {
       break;
     }

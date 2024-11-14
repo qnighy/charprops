@@ -113,7 +113,12 @@ export class AsyncConnection implements AsyncDisposable {
     await this.#api.close(this.#dbPointer);
   }
 
-  async *prepareIter(sql: string): AsyncIterableIterator<AsyncStatement> {
+  async *prepareIter<
+    // deno-lint-ignore ban-types
+    Params extends SQLiteParams = {},
+    Row extends SQLiteRow = SQLiteRow,
+    RowPositional extends SQLiteRowPositional = SQLiteRowPositional
+  >(sql: string): AsyncIterableIterator<AsyncStatement<Params, Row, RowPositional>> {
     using sqlPointer = new SQLiteString(sql, this.#api);
     let currentSQL = sqlPointer.pointer;
     while (true) {
@@ -126,17 +131,27 @@ export class AsyncConnection implements AsyncDisposable {
     }
   }
 
-  async prepareAll(sql: string): Promise<AsyncDisposableArray<AsyncStatement>> {
-    const stmts = new AsyncDisposableArray<AsyncStatement>();
-    for await (const stmt of this.prepareIter(sql)) {
+  async prepareAll<
+    // deno-lint-ignore ban-types
+    Params extends SQLiteParams = {},
+    Row extends SQLiteRow = SQLiteRow,
+    RowPositional extends SQLiteRowPositional = SQLiteRowPositional
+  >(sql: string): Promise<AsyncDisposableArray<AsyncStatement<Params, Row, RowPositional>>> {
+    const stmts = new AsyncDisposableArray<AsyncStatement<Params, Row, RowPositional>>();
+    for await (const stmt of this.prepareIter<Params, Row, RowPositional>(sql)) {
       stmts.push(stmt);
     }
     return stmts;
   }
 
-  async prepare(sql: string): Promise<AsyncStatement> {
-    let firstStmt: AsyncStatement | undefined = undefined;
-    for await (const stmt of this.prepareIter(sql)) {
+  async prepare<
+    // deno-lint-ignore ban-types
+    Params extends SQLiteParams = {},
+    Row extends SQLiteRow = SQLiteRow,
+    RowPositional extends SQLiteRowPositional = SQLiteRowPositional
+  >(sql: string): Promise<AsyncStatement<Params, Row, RowPositional>> {
+    let firstStmt: AsyncStatement<Params, Row, RowPositional> | undefined = undefined;
+    for await (const stmt of this.prepareIter<Params, Row, RowPositional>(sql)) {
       if (firstStmt) {
         await firstStmt[Symbol.asyncDispose]();
         await stmt[Symbol.asyncDispose]();
@@ -150,40 +165,59 @@ export class AsyncConnection implements AsyncDisposable {
     return firstStmt;
   }
 
-  async *executeIterPositional(sql: string, params?: SQLiteParams): AsyncIterableIterator<SQLiteRowPositional> {
-    for await (const stmt_ of this.prepareIter(sql)) {
+  async *executeIterPositional<
+    // deno-lint-ignore ban-types
+    Params extends SQLiteParams = {},
+    RowPositional extends SQLiteRowPositional = SQLiteRowPositional
+  >(sql: string, params?: Params): AsyncIterableIterator<RowPositional> {
+    for await (const stmt_ of this.prepareIter<Params, SQLiteRow, RowPositional>(sql)) {
       // Workaround for await using in for-of loop, whose implementation in current Deno is broken
       await using stmt = stmt_;
       yield* stmt.executeIterPositional(params);
     }
   }
 
-  async *executeIter(sql: string, params?: SQLiteParams): AsyncIterableIterator<SQLiteRow> {
-    for await (const stmt_ of this.prepareIter(sql)) {
+  async *executeIter<
+    // deno-lint-ignore ban-types
+    Params extends SQLiteParams = {},
+    Row extends SQLiteRow = SQLiteRow
+  >(sql: string, params?: Params): AsyncIterableIterator<Row> {
+    for await (const stmt_ of this.prepareIter<Params, Row, SQLiteRowPositional>(sql)) {
       // Workaround for await using in for-of loop, whose implementation in current Deno is broken
       await using stmt = stmt_;
       yield* stmt.executeIter(params);
     }
   }
 
-  async executeRowsPositional(sql: string, params?: SQLiteParams): Promise<SQLiteRowPositional[]> {
-    const rows: SQLiteRowPositional[] = [];
-    for await (const row of this.executeIterPositional(sql, params)) {
+  async executeRowsPositional<
+    // deno-lint-ignore ban-types
+    Params extends SQLiteParams = {},
+    RowPositional extends SQLiteRowPositional = SQLiteRowPositional
+  >(sql: string, params?: Params): Promise<RowPositional[]> {
+    const rows: RowPositional[] = [];
+    for await (const row of this.executeIterPositional<Params, RowPositional>(sql, params)) {
       rows.push(row);
     }
     return rows;
   }
 
-  async executeRows(sql: string, params?: SQLiteParams): Promise<SQLiteRow[]> {
-    const rows: SQLiteRow[] = [];
-    for await (const row of this.executeIter(sql, params)) {
+  async executeRows<
+    // deno-lint-ignore ban-types
+    Params extends SQLiteParams = {},
+    Row extends SQLiteRow = SQLiteRow
+  >(sql: string, params?: Params): Promise<Row[]> {
+    const rows: Row[] = [];
+    for await (const row of this.executeIter<Params, Row>(sql, params)) {
       rows.push(row);
     }
     return rows;
   }
 
-  async execute(sql: string, params?: SQLiteParams): Promise<void> {
-    for await (const stmt_ of this.prepareIter(sql)) {
+  async execute<
+    // deno-lint-ignore ban-types
+    Params extends SQLiteParams = {}
+  >(sql: string, params?: Params): Promise<void> {
+    for await (const stmt_ of this.prepareIter<Params>(sql)) {
       // Workaround for await using in for-of loop, whose implementation in current Deno is broken
       await using stmt = stmt_;
       await stmt.execute(params);
@@ -268,7 +302,7 @@ export class AsyncTransaction implements AsyncDisposable {
   }
 }
 
-export class AsyncStatement implements AsyncDisposable {
+export class AsyncStatement<Params extends SQLiteParams, Row extends SQLiteRow, RowPositional extends SQLiteRowPositional> implements AsyncDisposable {
   #api: SQLiteAPI;
   #pointer: number;
 
@@ -297,7 +331,7 @@ export class AsyncStatement implements AsyncDisposable {
     await this.#api.reset(this.#pointer);
   }
 
-  async *executeIterPositional(params?: SQLiteParams): AsyncIterableIterator<SQLiteRowPositional> {
+  async *executeIterPositional(params?: Params): AsyncIterableIterator<RowPositional> {
     try {
       if (params) {
         this.bindParameters(params);
@@ -312,37 +346,37 @@ export class AsyncStatement implements AsyncDisposable {
         }
         // TODO: use a low-level API
         const row = this.#api.row(this.#pointer);
-        yield row;
+        yield row as RowPositional;
       }
     } finally {
       await this.reset();
     }
   }
 
-  async *executeIter(params?: SQLiteParams): AsyncIterableIterator<SQLiteRow> {
+  async *executeIter(params?: Params): AsyncIterableIterator<Row> {
     const columnNames = this.columnNames;
     for await (const row of this.executeIterPositional(params)) {
-      yield Object.fromEntries(columnNames.map((name, i) => [name, row[i]]));
+      yield Object.fromEntries(columnNames.map((name, i) => [name, row[i]])) as Row;
     }
   }
 
-  async executeRowsPositional(params?: SQLiteParams): Promise<SQLiteRowPositional[]> {
-    const rows: SQLiteRowPositional[] = [];
+  async executeRowsPositional(params?: Params): Promise<RowPositional[]> {
+    const rows: RowPositional[] = [];
     for await (const row of this.executeIterPositional(params)) {
       rows.push(row);
     }
     return rows;
   }
 
-  async executeRows(params?: SQLiteParams): Promise<SQLiteRow[]> {
-    const rows: SQLiteRow[] = [];
+  async executeRows(params?: Params): Promise<Row[]> {
+    const rows: Row[] = [];
     for await (const row of this.executeIter(params)) {
       rows.push(row);
     }
     return rows;
   }
 
-  async execute(params?: SQLiteParams): Promise<void> {
+  async execute(params?: Params): Promise<void> {
     for await (const _ of this.executeIterPositional(params)) {
       // consume the iterator
     }
@@ -406,7 +440,7 @@ export class AsyncStatement implements AsyncDisposable {
     }
   }
 
-  bindParameters(params: SQLiteParams): void {
+  bindParameters(params: Params): void {
     const count = this.bindParameterCount;
     let currentAnonymousIndex = 0;
     for (let i = 0; i < count; i++) {
