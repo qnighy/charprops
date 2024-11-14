@@ -43,26 +43,14 @@ export async function setup() {
     INSERT INTO codepoints (codepoint, name, flags1)
     VALUES (:codepoint, :name, :flags1);
   `);
-  const bulkInsertCodepoint = async (rows: InsertCodepointParams[]) => {
-    let gotError = false;
-    await db.execute("BEGIN TRANSACTION;");
-    try {
+  const bulkInsertCodepoint = new AsyncFlusher<InsertCodepointParams>(async (rows) => {
+    await db.transaction(async () => {
       for (const row of rows) {
         await insertCodepoint.execute(row);
       }
-    } catch (e) {
-      gotError = true;
-      throw e;
-    } finally {
-      if (gotError) {
-        await db.execute("ROLLBACK;");
-      } else {
-        await db.execute("COMMIT;");
-      }
-    }
+    });
     console.log(`Inserted ${rows.length} codepoints`);
-  };
-  let bulkRows: InsertCodepointParams[] = [];
+  }, 1000);
   const unicodeData = await Deno.open(unicodeDataPath);
   for await (const row of parseUnicodeData(lines(unicodeData.readable))) {
     const { codepoint: codepointOrRange, name: nameData } = row;
@@ -80,15 +68,31 @@ export async function setup() {
         numericType: row.numeric?.numericType,
         bidiMirrored: row.bidiMirrored,
       });
-      bulkRows.push(compressed);
-      if (bulkRows.length >= 1000) {
-        await bulkInsertCodepoint(bulkRows);
-        bulkRows = [];
-      }
+      await bulkInsertCodepoint.push(compressed);
     }
   }
-  if (bulkRows.length > 0) {
-    await bulkInsertCodepoint(bulkRows);
+  await bulkInsertCodepoint.flush();
+}
+
+class AsyncFlusher<T> {
+  #handler: (rows: T[]) => Promise<void>;
+  #entries: T[] = [];
+  #threshold: number;
+
+  constructor(handler: (rows: T[]) => Promise<void>, threshold: number) {
+    this.#handler = handler;
+    this.#threshold = threshold;
+  }
+
+  async push(...entries: T[]) {
+    this.#entries.push(...entries);
+    if (this.#entries.length >= this.#threshold) {
+      await this.flush();
+    }
+  }
+
+  async flush() {
+    await this.#handler(this.#entries.splice(0));
   }
 }
 

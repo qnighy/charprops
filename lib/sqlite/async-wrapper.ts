@@ -100,22 +100,24 @@ export type OpenOptions = {
 
 export class AsyncConnection implements AsyncDisposable {
   #api: SQLiteAPI;
-  dbPointer: number;
+  #dbPointer: number;
+  #transactions: [AsyncTransaction, { name?: string }][] = [];
+  #currentSavepointId = 1;
 
   constructor(api: SQLiteAPI, dbId: number) {
     this.#api = api;
-    this.dbPointer = dbId;
+    this.#dbPointer = dbId;
   }
 
   async [Symbol.asyncDispose]() {
-    await this.#api.close(this.dbPointer);
+    await this.#api.close(this.#dbPointer);
   }
 
   async *prepareIter(sql: string): AsyncIterableIterator<AsyncStatement> {
     using sqlPointer = new SQLiteString(sql, this.#api);
     let currentSQL = sqlPointer.pointer;
     while (true) {
-      const result = await this.#api.prepare_v2(this.dbPointer, currentSQL);
+      const result = await this.#api.prepare_v2(this.#dbPointer, currentSQL);
       if (!result) {
         break;
       }
@@ -186,6 +188,83 @@ export class AsyncConnection implements AsyncDisposable {
       await using stmt = stmt_;
       await stmt.execute(params);
     }
+  }
+
+  async begin(): Promise<AsyncTransaction> {
+    if (this.#transactions.length > 0) {
+      const savepointName = `savepoint_${this.#currentSavepointId++}`;
+      await this.execute(`SAVEPOINT ${savepointName};`);
+      const transaction = new AsyncTransaction(this);
+      this.#transactions.push([transaction, { name: savepointName }]);
+      return transaction;
+    } else {
+      await this.execute("BEGIN;");
+      const transaction = new AsyncTransaction(this);
+      this.#transactions.push([transaction, {}]);
+      return transaction;
+    }
+  }
+
+  async transaction<T>(callback: () => Promise<T>): Promise<T> {
+    let gotError = false;
+    const transaction = await this.begin();
+    try {
+      return await callback();
+    } catch (e) {
+      gotError = true;
+      throw e;
+    } finally {
+      if (gotError) {
+        await transaction.rollback();
+      } else {
+        await transaction.commit();
+      }
+    }
+  }
+
+  async _commitOrRollbackTransaction(transaction: AsyncTransaction, rollback: boolean): Promise<void> {
+    const index = this.#transactions.findLastIndex(([t]) => t === transaction);
+    if (index === -1) {
+      return;
+    }
+    while (this.#transactions.length > index) {
+      const current = this.#transactions.pop();
+      if (current) {
+        if (current[0] === transaction && rollback) {
+          if (current[1].name) {
+            await this.execute(`ROLLBACK TO ${current[1].name};`);
+          } else {
+            await this.execute("ROLLBACK;");
+          }
+        } else {
+          if (current[1].name) {
+            await this.execute(`RELEASE ${current[1].name};`);
+          } else {
+            await this.execute("COMMIT;");
+          }
+        }
+      }
+    }
+  }
+}
+
+export class AsyncTransaction implements AsyncDisposable {
+  #connection: AsyncConnection;
+
+  constructor(connection: AsyncConnection) {
+    this.#connection = connection;
+  }
+
+  async commit(): Promise<void> {
+    await this.#connection._commitOrRollbackTransaction(this, false);
+  }
+
+  async rollback(): Promise<void> {
+    await this.#connection._commitOrRollbackTransaction(this, true);
+  }
+
+  async [Symbol.asyncDispose]() {
+    await this.#connection._commitOrRollbackTransaction(this, false);
   }
 }
 
