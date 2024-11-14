@@ -17,7 +17,7 @@ export async function setup() {
     CREATE TABLE codepoints (
       codepoint INTEGER PRIMARY KEY,
       name      TEXT,
-      flags     INTEGER
+      flags1    INTEGER
     );
 
     CREATE INDEX codepoints_name ON codepoints (name);
@@ -37,11 +37,11 @@ export async function setup() {
   type InsertCodepointParams = {
     codepoint: number;
     name: string;
-    flags: number;
+    flags1: number;
   };
   await using insertCodepoint = await db.prepare(`
-    INSERT INTO codepoints (codepoint, name, flags)
-    VALUES (:codepoint, :name, :flags);
+    INSERT INTO codepoints (codepoint, name, flags1)
+    VALUES (:codepoint, :name, :flags1);
   `);
   const bulkInsertCodepoint = async (rows: InsertCodepointParams[]) => {
     let gotError = false;
@@ -81,7 +81,7 @@ export async function setup() {
       bulkRows.push({
         codepoint,
         name,
-        flags: flags.flags1,
+        flags1: flags.flags1,
       });
       if (bulkRows.length >= 1000) {
         await bulkInsertCodepoint(bulkRows);

@@ -15,10 +15,10 @@ export type CodePointData = {
 };
 
 export async function readCodePoint(db: AsyncConnection, codepoint: number): Promise<CodePointData> {
-  const result = (await db.executeRows("SELECT codepoint, name, flags FROM codepoints WHERE codepoint = :codepoint LIMIT 1", { codepoint })) as {
+  const result = (await db.executeRows("SELECT codepoint, name, flags1 FROM codepoints WHERE codepoint = :codepoint LIMIT 1", { codepoint })) as {
     codepoint: number;
     name: string;
-    flags: number;
+    flags1: number;
   }[];
   if (result.length === 0) {
     // TODO: branch for noncharacters should be unnecessary here
@@ -39,7 +39,7 @@ export async function readCodePoint(db: AsyncConnection, codepoint: number): Pro
       bidiMirrored: false,
     };
   }
-  const { codepoint: respCodepoint, name, flags: flags1 } = result[0];
+  const { codepoint: respCodepoint, name, flags1 } = result[0];
   const expandedFlags = expandFlags({ flags1 });
   return {
     codepoint: respCodepoint,

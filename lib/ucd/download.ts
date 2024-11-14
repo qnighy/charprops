@@ -104,13 +104,15 @@ export async function downloadUCD(filename: UCDZipFilename | UCDFilename | Uniha
 
   const ucdSource = `https://www.unicode.org/Public/${UNICODE_VERSION}/ucd/${filename}`;
   const ucdDist = path.join(UCDDownloadPath, filename.replace("/", path.SEPARATOR));
-  await using ucdDistTmp = new AsyncTake(tmpPath());
-  await Deno.mkdir(path.dirname(ucdDist), { recursive: true });
 
   const alreadyDownloaded = await fileExists(ucdDist);
   if (alreadyDownloaded) {
     return ucdDist;
   }
+
+  await using ucdDistTmp = new AsyncTake(tmpPath());
+  await Deno.mkdir(path.dirname(ucdDist), { recursive: true });
+
   {
     using distFile = new Take(await Deno.open(ucdDistTmp.borrow.path, { create: true, write: true, truncate: true }));
 
