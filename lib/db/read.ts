@@ -1,20 +1,8 @@
 import { AsyncConnection } from "../sqlite.ts";
 import { deriveNoncharacterName, deriveReservedName } from "../ucd/name.ts";
-import type { BidiClass, DecompositionType, GeneralCategoryAbbr, NumericType } from "../ucd/parser.ts";
-import { expandFlags } from "./flags.ts";
+import { compressFlags, type CompressedCodePointData } from "../flags.ts";
 
-export type CodePointData = {
-  codepoint: number;
-  name: string;
-  generalCategory: GeneralCategoryAbbr;
-  canonicalCombiningClass: number;
-  bidiClass: BidiClass;
-  decompositionType: DecompositionType | undefined;
-  numericType: NumericType | undefined;
-  bidiMirrored: boolean;
-};
-
-export async function readCodePoint(db: AsyncConnection, codepoint: number): Promise<CodePointData> {
+export async function readCodePoint(db: AsyncConnection, codepoint: number): Promise<CompressedCodePointData> {
   const result = (await db.executeRows("SELECT codepoint, name, flags1 FROM codepoints WHERE codepoint = :codepoint LIMIT 1", { codepoint })) as {
     codepoint: number;
     name: string;
@@ -27,7 +15,7 @@ export async function readCodePoint(db: AsyncConnection, codepoint: number): Pro
       0xFDD0 <= codepoint && codepoint <= 0xFDEF ||
       (codepoint & 0xFFFF) === 0xFFFE || (codepoint & 0xFFFF) === 0xFFFF;
     // Unassigned code point; use default values
-    return {
+    return compressFlags({
       codepoint,
       name: isNoncharacter ? deriveNoncharacterName(codepoint) : deriveReservedName(codepoint),
       generalCategory: 'Cn',
@@ -37,13 +25,7 @@ export async function readCodePoint(db: AsyncConnection, codepoint: number): Pro
       decompositionType: undefined,
       numericType: undefined,
       bidiMirrored: false,
-    };
+    });
   }
-  const { codepoint: respCodepoint, name, flags1 } = result[0];
-  const expandedFlags = expandFlags({ flags1 });
-  return {
-    codepoint: respCodepoint,
-    name,
-    ...expandedFlags,
-  };
+  return result[0];
 }

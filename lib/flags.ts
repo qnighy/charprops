@@ -1,11 +1,24 @@
-import { BidiClass, DecompositionType, GeneralCategoryAbbr, NumericType } from "../ucd/parser.ts";
+import type { BidiClass, DecompositionType, GeneralCategoryAbbr, NumericType } from "./ucd/parser.ts";
 import { BitStruct, BooleanBitField, EnumBitField, NumericBitField } from "./flags-util.ts";
 
-export type Flags = {
+export type CodePointData = {
+  codepoint: number;
+  name: string;
+  generalCategory: GeneralCategoryAbbr;
+  canonicalCombiningClass: number;
+  bidiClass: BidiClass;
+  decompositionType: DecompositionType | undefined;
+  numericType: NumericType | undefined;
+  bidiMirrored: boolean;
+};
+
+export type CompressedCodePointData = {
+  codepoint: number;
+  name: string;
   flags1: number;
 };
 
-export type ExpandedFlags = {
+type ExpandedFlags = {
   generalCategory: GeneralCategoryAbbr;
   canonicalCombiningClass: number;
   bidiClass: BidiClass;
@@ -114,12 +127,18 @@ const Flag1Descriptor = new BitStruct<ExpandedFlags>({
   bidiMirrored: new BooleanBitField(),
 });
 
-export function compressFlags(flags: ExpandedFlags): Flags {
+export function compressFlags(expanded: CodePointData): CompressedCodePointData {
   return {
-    flags1: Flag1Descriptor.encode(flags),
+    codepoint: expanded.codepoint,
+    name: expanded.name,
+    flags1: Flag1Descriptor.encode(expanded),
   };
 }
 
-export function expandFlags(flags: Flags): ExpandedFlags {
-  return Flag1Descriptor.decode(flags.flags1);
+export function expandFlags(compressed: CompressedCodePointData): CodePointData {
+  return {
+    codepoint: compressed.codepoint,
+    name: compressed.name,
+    ...Flag1Descriptor.decode(compressed.flags1),
+  };
 }

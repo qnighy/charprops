@@ -4,7 +4,7 @@ import { deriveName } from "../ucd/name.ts";
 import { parseUnicodeData } from "../ucd/parser.ts";
 import { DB_PATH } from "./path.ts";
 import { sqlite } from "./pool.ts";
-import { compressFlags } from "./flags.ts";
+import { compressFlags } from "../flags.ts";
 
 export async function setup() {
   await using db = await sqlite.open(DB_PATH, { write: true, create: true });
@@ -70,7 +70,9 @@ export async function setup() {
     const endCodepoint = codepointOrRange.type === "CodePointRange" ? codepointOrRange.end : startCodepoint;
     for (let codepoint = startCodepoint; codepoint <= endCodepoint; codepoint++) {
       const name = nameData.type === "DerivableName" ? deriveName(nameData.label, codepoint) : nameData.name;
-      const flags = compressFlags({
+      const compressed = compressFlags({
+        codepoint,
+        name,
         generalCategory: row.generalCategory,
         canonicalCombiningClass: row.canonicalCombiningClass,
         bidiClass: row.bidiClass,
@@ -78,11 +80,7 @@ export async function setup() {
         numericType: row.numeric?.numericType,
         bidiMirrored: row.bidiMirrored,
       });
-      bulkRows.push({
-        codepoint,
-        name,
-        flags1: flags.flags1,
-      });
+      bulkRows.push(compressed);
       if (bulkRows.length >= 1000) {
         await bulkInsertCodepoint(bulkRows);
         bulkRows = [];

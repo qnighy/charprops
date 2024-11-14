@@ -1,13 +1,14 @@
 import { Head } from "$fresh/runtime.ts";
 import { Handlers, PageProps } from "$fresh/server.ts";
 import { CodePoint, parseCodePoint, stringifyCodePoint } from "../../lib/codepoint.ts";
-import { CodePointData, readCodePoint } from "../../lib/db/read.ts";
+import { readCodePoint } from "../../lib/db/read.ts";
 import { dbPool } from "../../lib/db/pool.ts";
 import { GeneralCategoryAbbr } from "../../lib/ucd/parser.ts";
+import { CompressedCodePointData, expandFlags } from "../../lib/flags.ts";
 
 export type CodePointPageData = {
   codepoint: CodePoint;
-  codepointData: CodePointData;
+  codepointData: CompressedCodePointData;
 };
 
 export const handler: Handlers<CodePointPageData> = {
@@ -33,7 +34,8 @@ export const handler: Handlers<CodePointPageData> = {
 const NON_PRINTABLE_CATEGORIES = new Set<GeneralCategoryAbbr>(["Cc", "Cf", "Cs", "Co", "Cn"]);
 
 export default function CodepointPage(page: PageProps<CodePointPageData>) {
-  const { codepoint, codepointData } = page.data;
+  const { codepoint, codepointData: compressedCodePointData } = page.data;
+  const codepointData = expandFlags(compressedCodePointData);
 
   const printableValue =
     NON_PRINTABLE_CATEGORIES.has(codepointData.generalCategory)
