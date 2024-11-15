@@ -5,6 +5,7 @@ import { readCodePoint } from "../../lib/db/read.ts";
 import { dbPool } from "../../lib/db/pool.ts";
 import { GeneralCategoryAbbr } from "../../lib/ucd/parser.ts";
 import { CompressedCodePointData, expandFlags } from "../../lib/flags.ts";
+import { codepointTags } from "../../lib/tag.ts";
 
 export type CodePointPageData = {
   codepoint: CodePoint;
@@ -42,6 +43,18 @@ export default function CodepointPage(page: PageProps<CodePointPageData>) {
       ? undefined
       : String.fromCodePoint(codepoint.codepoint);
 
+  const tags = codepointTags(codepointData);
+  const tagsByTagCategory = new Map<string, string[]>();
+  for (const tag of tags) {
+    const tagCategoryName = tagCategory(tag);
+    let tagCategoryTags = tagsByTagCategory.get(tagCategoryName);
+    if (tagCategoryTags == null) {
+      tagCategoryTags = [];
+      tagsByTagCategory.set(tagCategoryName, tagCategoryTags);
+    }
+    tagCategoryTags.push(tag);
+  }
+
   return (
     <>
       <Head>
@@ -57,8 +70,70 @@ export default function CodepointPage(page: PageProps<CodePointPageData>) {
               </span>
             </p>
           )}
+          <table class="border-collapse table-fixed w-4/5">
+            <tbody>
+              {
+                tagCategories().map((tagCategoryName) => {
+                  const tags = tagsByTagCategory.get(tagCategoryName);
+                  if (tags == null) {
+                    return null;
+                  }
+                  return (
+                    <tr key={tagCategoryName}>
+                      <th class="border border-slate-300 text-right px-4">{tagCategoryName}</th>
+                      <td class="border border-slate-300 text-left px-4">{
+                        tags.map((tag) => (
+                          <Tag key={tag} tag={tag} />
+                        ))
+                      }</td>
+                    </tr>
+                  );
+                })
+              }
+            </tbody>
+          </table>
         </div>
       </div>
     </>
   );
+}
+
+type TagProps = {
+  tag: string;
+};
+
+function Tag(props: TagProps) {
+  const { tag } = props;
+  const [tagPropertyName, tagPropertyValue] = splitTag(tag);
+  return (
+    <span class="px-1">
+      <span class="inline-block ps-2 pe-0.5 py-1 text-xs font-semibold text-white bg-slate-600 rounded-s-full">
+        {tagPropertyName}
+        =
+      </span>
+      <span class="inline-block ps-0.5 pe-2 py-1 text-xs font-semibold text-white bg-emerald-500 rounded-e-full">
+        {tagPropertyValue}
+      </span>
+      {" "}
+    </span>
+  );
+}
+
+function tagCategory(tag: string): string {
+  const [tagPropertyName] = splitTag(tag);
+  switch (tagPropertyName) {
+    case "gc":
+      return "General Category";
+    default:
+      return "Others";
+  }
+}
+
+function splitTag(tag: string): [string, string] {
+  const eqIndex = tag.indexOf("=");
+  return eqIndex === -1 ? [tag, ""] : [tag.slice(0, eqIndex), tag.slice(eqIndex + 1)];
+}
+
+function tagCategories(): string[] {
+  return ["General Category", "Others"];
 }
