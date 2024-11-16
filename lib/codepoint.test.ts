@@ -20,6 +20,14 @@ Deno.test("parseCodepoint", () => {
   // Surrogates
   assertEquals(parseCodepoint("u+d800"), UnicodeCodepoint(0xd800));
   assertEquals(parseCodepoint("u+dfff"), UnicodeCodepoint(0xdfff));
+
+  // Alternatively, the character itself
+  assertEquals(parseCodepoint("A"), UnicodeCodepoint(0x41));
+  assertEquals(parseCodepoint("þ"), UnicodeCodepoint(0xfe));
+  // Non-BMPs
+  assertEquals(parseCodepoint("𐌴"), UnicodeCodepoint(0x10334));
+  // But reject surrogates
+  assertEquals(parseCodepoint("\ud800"), null);
 });
 
 Deno.test("stringifyCodepoint", () => {

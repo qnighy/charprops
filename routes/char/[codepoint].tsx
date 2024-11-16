@@ -15,14 +15,15 @@ export type CharPageData = {
 
 export const handler: Handlers<CharPageData> = {
   async GET(_req, ctx) {
-    const { codepoint: codepointText } = ctx.params;
+    const { codepoint: codepointEncoded } = ctx.params;
+    const codepointText = decodeURIComponent(codepointEncoded);
     const codepoint = parseCodepoint(codepointText);
     if (codepoint == null) {
       return ctx.renderNotFound();
     }
 
     const normalizedCodepoint = stringifyCodepoint(codepoint);
-    if (normalizedCodepoint !== codepointText) {
+    if (normalizedCodepoint !== codepointEncoded) {
       return new Response(null, { status: 301, headers: { Location: `/char/${normalizedCodepoint}` } });
     }
 

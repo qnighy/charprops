@@ -18,6 +18,14 @@ export function parseCodepoint(text: string): Codepoint | null {
     }
   }
 
+  if (text.length <= 2 && [...text].length === 1) {
+    // Interpret as the character itself
+    const cp = text.codePointAt(0)!;
+    if (!(0xD800 <= cp && cp <= 0xDFFF)) {
+      return UnicodeCodepoint(cp);
+    }
+  }
+
   return null;
 }
 
