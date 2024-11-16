@@ -9,6 +9,7 @@ import * as $api_joke from "./routes/api/joke.ts";
 import * as $cp_codepoint_ from "./routes/cp/[codepoint].tsx";
 import * as $greet_name_ from "./routes/greet/[name].tsx";
 import * as $index from "./routes/index.tsx";
+import * as $tag_tag_ from "./routes/tag/[tag].tsx";
 import * as $Counter from "./islands/Counter.tsx";
 import type { Manifest } from "$fresh/server.ts";
 
@@ -21,6 +22,7 @@ const manifest = {
     "./routes/cp/[codepoint].tsx": $cp_codepoint_,
     "./routes/greet/[name].tsx": $greet_name_,
     "./routes/index.tsx": $index,
+    "./routes/tag/[tag].tsx": $tag_tag_,
   },
   islands: {
     "./islands/Counter.tsx": $Counter,

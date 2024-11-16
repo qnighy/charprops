@@ -1,3 +1,4 @@
+import { Fragment } from "preact";
 import { Head } from "$fresh/runtime.ts";
 import { Handlers, PageProps } from "$fresh/server.ts";
 import { CodePoint, parseCodePoint, stringifyCodePoint } from "../../lib/codepoint.ts";
@@ -63,13 +64,11 @@ export default function CodepointPage(page: PageProps<CodePointPageData>) {
       <div class="px-4 py-8 mx-auto bg-emerald-50 text-zinc-800">
         <div class="max-w-screen-md mx-auto flex flex-col items-center justify-center">
           <h1 class="text-4xl font-bold">{stringifyCodePoint(codepoint)}{" "}{codepointData.name}</h1>
-          {printableValue && (
-            <p class="text-9xl my-4 size-32 rounded border-2 border-stone-200 border-solid bg-stone-50 grid grid-cols-1">
-              <span class="text-center align-middle">
-                {printableValue}
-              </span>
-            </p>
-          )}
+          <p class="text-9xl my-4 size-32 rounded border-2 border-stone-200 border-solid bg-stone-50 grid grid-cols-1">
+            <span class="text-center align-middle">
+              {printableValue}
+            </span>
+          </p>
           <table class="border-collapse table-fixed w-4/5">
             <tbody>
               {
@@ -83,7 +82,10 @@ export default function CodepointPage(page: PageProps<CodePointPageData>) {
                       <th class="border border-slate-300 text-right px-4">{tagCategoryName}</th>
                       <td class="border border-slate-300 text-left px-4">{
                         tags.map((tag) => (
-                          <Tag key={tag} tag={tag} />
+                          <Fragment key={tag}>
+                            <Tag tag={tag} />
+                            {" "}
+                          </Fragment>
                         ))
                       }</td>
                     </tr>
@@ -106,16 +108,17 @@ function Tag(props: TagProps) {
   const { tag } = props;
   const [tagPropertyName, tagPropertyValue] = splitTag(tag);
   return (
-    <span class="px-1">
-      <span class="inline-block ps-2 pe-0.5 py-1 text-xs font-semibold text-white bg-slate-600 rounded-s-full">
-        {tagPropertyName}
-        =
+    <a href={`/tag/${tag}`}>
+      <span class="px-1">
+        <span class="inline-block ps-2 pe-0.5 py-1 text-xs font-semibold text-white bg-slate-600 rounded-s-full">
+          {tagPropertyName}
+          =
+        </span>
+        <span class="inline-block ps-0.5 pe-2 py-1 text-xs font-semibold text-white bg-emerald-500 rounded-e-full">
+          {tagPropertyValue}
+        </span>
       </span>
-      <span class="inline-block ps-0.5 pe-2 py-1 text-xs font-semibold text-white bg-emerald-500 rounded-e-full">
-        {tagPropertyValue}
-      </span>
-      {" "}
-    </span>
+    </a>
   );
 }
 
