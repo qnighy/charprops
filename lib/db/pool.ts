@@ -4,9 +4,23 @@ import { AsyncConnection, AsyncSQLite, AsyncSQLiteWrapper } from "../sqlite.ts";
 
 export const sqlite = new AsyncSQLiteWrapper(AsyncSQLite);
 
+async function hasChunkedMaster(path: string): Promise<boolean> {
+  try {
+    await Deno.stat(path + ".master.json");
+    return true;
+  } catch (e) {
+    if (e instanceof Deno.errors.NotFound) {
+      return false;
+    }
+    throw e
+  }
+}
+
+const hasChunkedReadonlyVersion = await hasChunkedMaster(DB_PATH);
 const connectionHandler: ResourceHandler<AsyncConnection> = {
   createResource() {
-    return sqlite.open(DB_PATH, { write: false, create: false });
+    const vfs = hasChunkedReadonlyVersion ? 'deno-chunked-readonly-async' : 'deno-async';
+    return sqlite.open(DB_PATH, { write: false, create: false, vfs });
   },
 };
 

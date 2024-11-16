@@ -5,6 +5,7 @@
     "cli": "echo \"import '\\$fresh/src/dev/cli.ts'\" | deno run --unstable -A -",
     "manifest": "deno task cli manifest $(pwd)",
     "build:db": "deno run --allow-read --allow-write --allow-net --allow-run lib/db/setup.ts",
+    "build:db:finalize": "deno run --allow-read --allow-write lib/db/finalize.ts",
     "start": "deno run -A --watch=static/,routes/ dev.ts",
     "build": "deno run -A dev.ts build",
     "preview": "deno run -A main.ts",
