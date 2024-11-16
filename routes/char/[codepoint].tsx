@@ -23,7 +23,7 @@ export const handler: Handlers<CharPageData> = {
 
     const normalizedCodepoint = stringifyCodepoint(codepoint);
     if (normalizedCodepoint !== codepointText) {
-      return new Response(null, { status: 301, headers: { Location: `/cp/${normalizedCodepoint}` } });
+      return new Response(null, { status: 301, headers: { Location: `/char/${normalizedCodepoint}` } });
     }
 
     await using dbBorrow = await dbPool.take();

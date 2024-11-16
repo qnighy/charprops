@@ -58,7 +58,7 @@ export default function CodepointPage(page: PageProps<TagData>) {
               const codepointString = stringifyCodepoint({ type: "UnicodeCodepoint", codepoint: charData.codepoint });
               return (
                 <Fragment key={codepointString}>
-                  <a href={`/cp/${codepointString}`}>
+                  <a href={`/char/${codepointString}`}>
                     <div title={charData.name} class="text-7xl my-2 size-16 rounded border-2 border-stone-200 border-solid bg-stone-50 grid grid-cols-1">
                       <div class="text-center align-middle">
                         {printableValue}
