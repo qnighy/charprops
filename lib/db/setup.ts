@@ -42,6 +42,13 @@ export async function setup() {
   await setupUnicodeData(db);
   const tagIds = await setupTags(db);
   await setupCharTags(db, tagIds);
+
+  console.log("Optimizing database");
+  await db.execute(`
+    VACUUM;
+    PRAGMA optimize=0x10002;
+  `);
+  console.log("Optimization complete");
 }
 
 async function setupUnicodeData(db: AsyncConnection) {
