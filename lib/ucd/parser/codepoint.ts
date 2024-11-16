@@ -1,4 +1,4 @@
-export function parseCodePoint(text: string): number {
+export function parseCodepoint(text: string): number {
   // TODO: handle U+ added in Unihan
   if (!/^[0-9a-f]{4,6}$/i.test(text)) {
     throw new SyntaxError(`Invalid code point: ${text}`);
@@ -10,45 +10,45 @@ export function parseCodePoint(text: string): number {
   }
   return cp;
 }
-export type CodePointOrRange = CodePointData | CodePointRange;
-export type CodePointData = {
-  type: "CodePoint";
+export type CodepointOrRange = CodepointData | CodepointRange;
+export type CodepointData = {
+  type: "Codepoint";
   codepoint: number;
 };
-export function CodePointData(codepoint: number): CodePointData {
-  return { type: "CodePoint", codepoint };
+export function CodepointData(codepoint: number): CodepointData {
+  return { type: "Codepoint", codepoint };
 }
-export type CodePointRange = {
-  type: "CodePointRange";
+export type CodepointRange = {
+  type: "CodepointRange";
   start: number;
   end: number;
 };
-export function CodePointRange(start: number, end: number): CodePointRange {
-  return { type: "CodePointRange", start, end };
+export function CodepointRange(start: number, end: number): CodepointRange {
+  return { type: "CodepointRange", start, end };
 }
 
-export function parseCodePointOrRange(text: string): CodePointOrRange {
+export function parseCodepointOrRange(text: string): CodepointOrRange {
   const parts = text.split('..');
   if (parts.length === 0) {
     throw new SyntaxError(`Invalid code point: ${text}`);
   } else if (parts.length === 1) {
-    return CodePointData(parseCodePoint(parts[0]));
+    return CodepointData(parseCodepoint(parts[0]));
   } else if (parts.length === 2) {
-    return CodePointRange(parseCodePoint(parts[0]), parseCodePoint(parts[1]));
+    return CodepointRange(parseCodepoint(parts[0]), parseCodepoint(parts[1]));
   } else {
     throw new SyntaxError(`Invalid code point range: ${text}`);
   }
 }
 
 export function parseUSV(text: string): number {
-  const cp = parseCodePoint(text);
+  const cp = parseCodepoint(text);
   if (0xD800 <= cp && cp < 0xE000) {
     throw new SyntaxError(`Surrogate is not a USV: ${text}`);
   }
   return cp;
 }
 
-export function parseCodePointString(text: string): string {
+export function parseCodepointString(text: string): string {
   const parts = text.split(/\s+/);
   return parts.map((part) => String.fromCodePoint(parseUSV(part))).join('');
 }

@@ -1,9 +1,9 @@
 import { parseInteger, parseRow, parseShortBinaryValue, ensureEnum } from "./base.ts";
-import { CodePointData, CodePointOrRange, CodePointRange, parseCodePoint, parseCodePointString } from "./codepoint.ts";
+import { CodepointData, CodepointOrRange, CodepointRange, parseCodepoint, parseCodepointString } from "./codepoint.ts";
 import { DerivableNameData, parseName, RangeIdentifierStartData, RegularNameData } from "./name.ts";
 
 export type UnicodeDataRow = {
-  codepoint: CodePointOrRange;
+  codepoint: CodepointOrRange;
   name: RegularNameData | DerivableNameData;
   generalCategory: GeneralCategoryAbbr;
   canonicalCombiningClass: number;
@@ -193,7 +193,7 @@ export type NumericType =
   | "Numeric";
 
 type UnicodeDataRow01 = {
-  codepoint: CodePointOrRange;
+  codepoint: CodepointOrRange;
   name: RegularNameData | DerivableNameData;
 };
 
@@ -224,7 +224,7 @@ export async function* parseUnicodeData(lines: AsyncIterable<string> | Iterable<
       simpleLowercaseMappingCodepoints,
       simpleTitlecaseMappingCodepoints,
     ] = dataElems;
-    const codepoint = parseCodePoint(codepointText);
+    const codepoint = parseCodepoint(codepointText);
     const nameData = parseName(nameText);
     let row01: UnicodeDataRow01;
     if (lastRangeStart != null) {
@@ -234,7 +234,7 @@ export async function* parseUnicodeData(lines: AsyncIterable<string> | Iterable<
       const { codepoint: startCodepoint } = lastRangeStart;
       lastRangeStart = null;
       row01 = {
-        codepoint: CodePointRange(startCodepoint, codepoint),
+        codepoint: CodepointRange(startCodepoint, codepoint),
         name: DerivableNameData(nameData.identifier),
       };
     } else if (nameData.type === "RangeIdentifierStart") {
@@ -244,7 +244,7 @@ export async function* parseUnicodeData(lines: AsyncIterable<string> | Iterable<
       throw new SyntaxError(`Unexpected range end: ${nameText}`);
     } else {
       row01 = {
-        codepoint: CodePointData(codepoint),
+        codepoint: CodepointData(codepoint),
         name: nameData,
       };
     }
@@ -292,13 +292,13 @@ function parseDecomposition(decompositionText: string): Decomposition | null {
     }
     return {
       decompositionType,
-      decompositionMapping: parseCodePointString(tail),
+      decompositionMapping: parseCodepointString(tail),
     };
   }
   // Canonical decomposition
   return {
     decompositionType: "Canonical",
-    decompositionMapping: parseCodePointString(decompositionText),
+    decompositionMapping: parseCodepointString(decompositionText),
   };
 }
 
@@ -343,7 +343,7 @@ function parseSingleCharacterMapping(mappingText: string): string | undefined {
   if (mappingText === "") {
     return undefined;
   }
-  const s = parseCodePointString(mappingText);
+  const s = parseCodepointString(mappingText);
   if ([...s].length /* take surrogates into account */ !== 1) {
     throw new SyntaxError(`Invalid mapping: ${mappingText} (length must be 1)`);
   }

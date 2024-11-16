@@ -1,4 +1,4 @@
-import { CodePointData } from "./flags.ts";
+import { CharData } from "./flags.ts";
 import { BidiClass, DecompositionType, GeneralCategoryAbbr } from "./ucd/parser.ts";
 
 const ALL_TAG_VALUES: Record<string, string[]> = {
@@ -40,31 +40,31 @@ export function allTags(): string[] {
   return tags;
 }
 
-export function codepointTags(codepoint: CodePointData): string[] {
+export function charTags(charData: CharData): string[] {
   const tags: string[] = [];
-  if (codepoint.generalCategory !== "Cn") {
-    tags.push(`gc=${codepoint.generalCategory}`);
-    for (const altTagValue of generalCategoryTags[codepoint.generalCategory]) {
+  if (charData.generalCategory !== "Cn") {
+    tags.push(`gc=${charData.generalCategory}`);
+    for (const altTagValue of generalCategoryTags[charData.generalCategory]) {
       tags.push(`gc=${altTagValue}`);
     }
   }
-  if (codepoint.canonicalCombiningClass !== 0) {
-    tags.push(`ccc=${codepoint.canonicalCombiningClass}`);
+  if (charData.canonicalCombiningClass !== 0) {
+    tags.push(`ccc=${charData.canonicalCombiningClass}`);
   }
-  if (codepoint.generalCategory !== "Cn") {
-    tags.push(`bc=${codepoint.bidiClass}`);
+  if (charData.generalCategory !== "Cn") {
+    tags.push(`bc=${charData.bidiClass}`);
   }
-  if (codepoint.decompositionType != null) {
-    tags.push(`dt=${decompositionTypeAbbreviations[codepoint.decompositionType]}`);
-    if (codepoint.decompositionType !== "Canonical") {
+  if (charData.decompositionType != null) {
+    tags.push(`dt=${decompositionTypeAbbreviations[charData.decompositionType]}`);
+    if (charData.decompositionType !== "Canonical") {
       tags.push("dt=AnyCompat");
     }
     tags.push("dt=Any");
   }
-  // if (codepoint.numericType != null) {
-  //   tags.push(`nt=${codepoint.numericType}`);
+  // if (charData.numericType != null) {
+  //   tags.push(`nt=${charData.numericType}`);
   // }
-  if (codepoint.bidiMirrored) {
+  if (charData.bidiMirrored) {
     tags.push("Bidi_M=Y");
   }
   return tags;

@@ -2,16 +2,16 @@ import { Fragment } from "preact";
 import { Handlers, PageProps } from "$fresh/server.ts";
 import { Head } from "$fresh/runtime.ts";
 import { dbPool } from "../../lib/db/pool.ts";
-import { readTag, readTagCodepoints } from "../../lib/db/read.ts";
-import { CompressedCodePointData, expandFlags } from "../../lib/flags.ts";
+import { readTag, readTagChars } from "../../lib/db/read.ts";
+import { CompressedCharData, expandFlags } from "../../lib/flags.ts";
 import { normalizeTag } from "../../lib/normalize-tag.ts";
 import { GeneralCategoryAbbr } from "../../lib/ucd/parser.ts";
-import { stringifyCodePoint } from "../../lib/codepoint.ts";
+import { stringifyCodepoint } from "../../lib/codepoint.ts";
 
 export type TagData = {
   tag: string;
   chars: {
-    rows: CompressedCodePointData[];
+    rows: CompressedCharData[];
     next: string | undefined;
   };
 };
@@ -30,7 +30,7 @@ export const handler: Handlers<TagData> = {
     if (tagId == null) {
       return ctx.renderNotFound();
     }
-    const chars = await readTagCodepoints(db, tagId);
+    const chars = await readTagChars(db, tagId);
     return ctx.render({ tag, chars });
   },
 };
@@ -55,7 +55,7 @@ export default function CodepointPage(page: PageProps<TagData>) {
                 NON_PRINTABLE_CATEGORIES.has(charData.generalCategory)
                   ? undefined
                   : String.fromCodePoint(charData.codepoint);
-              const codepointString = stringifyCodePoint({ type: "UnicodeCodePoint", codepoint: charData.codepoint });
+              const codepointString = stringifyCodepoint({ type: "UnicodeCodepoint", codepoint: charData.codepoint });
               return (
                 <Fragment key={codepointString}>
                   <a href={`/cp/${codepointString}`}>

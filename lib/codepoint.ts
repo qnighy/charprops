@@ -1,29 +1,29 @@
 import { getNNNN } from "./nnnn.ts";
 
-export type CodePoint = UnicodeCodePoint;
-export type UnicodeCodePoint = {
-  type: "UnicodeCodePoint";
+export type Codepoint = UnicodeCodepoint;
+export type UnicodeCodepoint = {
+  type: "UnicodeCodepoint";
   codepoint: number;
 };
-export function UnicodeCodePoint(codepoint: number): UnicodeCodePoint {
-  return { type: "UnicodeCodePoint", codepoint };
+export function UnicodeCodepoint(codepoint: number): UnicodeCodepoint {
+  return { type: "UnicodeCodepoint", codepoint };
 }
 
-export function parseCodePoint(text: string): CodePoint | null {
+export function parseCodepoint(text: string): Codepoint | null {
   const uMatch = /^u\+0*([0-9a-f]{1,6})$/i.exec(text);
   if (uMatch) {
     const codepoint = parseInt(uMatch[1], 16);
     if (codepoint >= 0 && codepoint <= 0x10ffff) {
-      return UnicodeCodePoint(codepoint);
+      return UnicodeCodepoint(codepoint);
     }
   }
 
   return null;
 }
 
-export function stringifyCodePoint(codepoint: CodePoint): string {
+export function stringifyCodepoint(codepoint: Codepoint): string {
   switch (codepoint.type) {
-    case "UnicodeCodePoint":
+    case "UnicodeCodepoint":
       return `U+${getNNNN(codepoint.codepoint)}`;
   }
 }

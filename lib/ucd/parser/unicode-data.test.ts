@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { CodePointData, CodePointRange } from "./codepoint.ts";
+import { CodepointData, CodepointRange } from "./codepoint.ts";
 import { DerivableNameData, RegularNameData } from "./name.ts";
 import { parseUnicodeData } from "./unicode-data.ts";
 
@@ -16,7 +16,7 @@ Deno.test("parseUnicodeData: parse ordinary row", async () => {
     await collectAsync(parseUnicodeData(["0041;LATIN CAPITAL LETTER A;Lu;0;L;;;;;N;;;;0061;\n"])),
     [
       {
-        codepoint: CodePointData(0x0041),
+        codepoint: CodepointData(0x0041),
         name: RegularNameData("LATIN CAPITAL LETTER A"),
         generalCategory: "Lu",
         canonicalCombiningClass: 0,
@@ -40,7 +40,7 @@ Deno.test("parseUnicodeData: parse range", async () => {
     ])),
     [
       {
-        codepoint: CodePointRange(0x4E00, 0x9FFF),
+        codepoint: CodepointRange(0x4E00, 0x9FFF),
         name: DerivableNameData("CJK Ideograph"),
         generalCategory: "Lo",
         canonicalCombiningClass: 0,
@@ -63,7 +63,7 @@ Deno.test("parseUnicodeData: parse compat mapping", async () => {
     ])),
     [
       {
-        codepoint: CodePointData(0x00A8),
+        codepoint: CodepointData(0x00A8),
         name: RegularNameData("DIAERESIS"),
         generalCategory: "Sk",
         canonicalCombiningClass: 0,
@@ -89,7 +89,7 @@ Deno.test("parseUnicodeData: parse canonical mapping", async () => {
     ])),
     [
       {
-        codepoint: CodePointData(0x00C0),
+        codepoint: CodepointData(0x00C0),
         name: RegularNameData("LATIN CAPITAL LETTER A WITH GRAVE"),
         generalCategory: "Lu",
         canonicalCombiningClass: 0,
@@ -115,7 +115,7 @@ Deno.test("parseUnicodeData: parse decimal numeric type", async () => {
     ])),
     [
       {
-        codepoint: CodePointData(0x0030),
+        codepoint: CodepointData(0x0030),
         name: RegularNameData("DIGIT ZERO"),
         generalCategory: "Nd",
         canonicalCombiningClass: 0,
@@ -141,7 +141,7 @@ Deno.test("parseUnicodeData: parse digit numeric type", async () => {
     ])),
     [
       {
-        codepoint: CodePointData(0x1369),
+        codepoint: CodepointData(0x1369),
         name: RegularNameData("ETHIOPIC DIGIT ONE"),
         generalCategory: "No",
         canonicalCombiningClass: 0,
@@ -167,7 +167,7 @@ Deno.test("parseUnicodeData: parse numeric numeric type", async () => {
     ])),
     [
       {
-        codepoint: CodePointData(0x2160),
+        codepoint: CodepointData(0x2160),
         name: RegularNameData("ROMAN NUMERAL ONE"),
         generalCategory: "Nl",
         canonicalCombiningClass: 0,
@@ -196,7 +196,7 @@ Deno.test("parseUnicodeData: parse Bidi_Mirrored=Y", async () => {
     ])),
     [
       {
-        codepoint: CodePointData(0x0028),
+        codepoint: CodepointData(0x0028),
         name: RegularNameData("LEFT PARENTHESIS"),
         generalCategory: "Ps",
         canonicalCombiningClass: 0,
@@ -219,7 +219,7 @@ Deno.test("parseUnicodeData: parse Simple_Uppercase_Mapping", async () => {
     ])),
     [
       {
-        codepoint: CodePointData(0x0061),
+        codepoint: CodepointData(0x0061),
         name: RegularNameData("LATIN SMALL LETTER A"),
         generalCategory: "Ll",
         canonicalCombiningClass: 0,
@@ -242,7 +242,7 @@ Deno.test("parseUnicodeData: parse Simple_Lowercase_Mapping", async () => {
     ])),
     [
       {
-        codepoint: CodePointData(0x0041),
+        codepoint: CodepointData(0x0041),
         name: RegularNameData("LATIN CAPITAL LETTER A"),
         generalCategory: "Lu",
         canonicalCombiningClass: 0,
@@ -265,7 +265,7 @@ Deno.test("parseUnicodeData: parse Simple_Titlecase_Mapping", async () => {
     ])),
     [
       {
-        codepoint: CodePointData(0x0061),
+        codepoint: CodepointData(0x0061),
         name: RegularNameData("LATIN SMALL LETTER A"),
         generalCategory: "Ll",
         canonicalCombiningClass: 0,

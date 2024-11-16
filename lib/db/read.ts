@@ -1,16 +1,16 @@
 import { AsyncConnection } from "../sqlite.ts";
 import { deriveNoncharacterName, deriveReservedName } from "../ucd/name.ts";
-import { compressFlags, type CompressedCodePointData } from "../flags.ts";
-import { stringifyCodePoint } from "../codepoint.ts";
+import { compressFlags, type CompressedCharData } from "../flags.ts";
+import { stringifyCodepoint, UnicodeCodepoint } from "../codepoint.ts";
 
-export async function readCodePoint(db: AsyncConnection, codepoint: number): Promise<CompressedCodePointData> {
+export async function readCharData(db: AsyncConnection, codepoint: number): Promise<CompressedCharData> {
   const result = await db.executeRows<{
     codepoint: number;
   }, {
     codepoint: number;
     name: string;
     flags1: number;
-  }>("SELECT codepoint, name, flags1 FROM codepoints WHERE codepoint = :codepoint LIMIT 1", { codepoint });
+  }>("SELECT codepoint, name, flags1 FROM chars WHERE codepoint = :codepoint LIMIT 1", { codepoint });
   if (result.length === 0) {
     // TODO: branch for noncharacters should be unnecessary here
     // once PropList.txt is integrated.
@@ -45,16 +45,16 @@ export async function readTag(db: AsyncConnection, tag: string): Promise<number 
   return result[0].tag_id;
 }
 
-export type ReadTagCodepointsOptions = {
+export type ReadTagCharsOptions = {
   after?: number;
   max?: number;
 };
 
-export async function readTagCodepoints(
+export async function readTagChars(
   db: AsyncConnection,
   tagId: number,
-  options: ReadTagCodepointsOptions = {},
-): Promise<{ rows: CompressedCodePointData[], next: string | undefined }> {
+  options: ReadTagCharsOptions = {},
+): Promise<{ rows: CompressedCharData[], next: string | undefined }> {
   const { after = -1, max = 100 } = options;
   const result = await db.executeRows<{
     tag_id: number;
@@ -65,16 +65,16 @@ export async function readTagCodepoints(
     name: string;
     flags1: number;
   }>(`
-    SELECT codepoints.codepoint, codepoints.name, codepoints.flags1
-    FROM codepoint_taggings
-    INNER JOIN codepoints USING (codepoint)
-    WHERE tag_id = :tag_id AND codepoints.codepoint > :after
-    ORDER BY codepoints.codepoint ASC
+    SELECT chars.codepoint, chars.name, chars.flags1
+    FROM char_taggings
+    INNER JOIN chars USING (codepoint)
+    WHERE tag_id = :tag_id AND chars.codepoint > :after
+    ORDER BY chars.codepoint ASC
     LIMIT :limit;
   `, { tag_id: tagId, after, limit: max + 1 });
 
   return {
     rows: result.slice(0, max),
-    next: result.length > max ? stringifyCodePoint({ type: "UnicodeCodePoint", codepoint: result[max].codepoint }) : undefined,
+    next: result.length > max ? stringifyCodepoint(UnicodeCodepoint(result[max].codepoint)) : undefined,
   };
 }

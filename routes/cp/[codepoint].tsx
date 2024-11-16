@@ -1,50 +1,50 @@
 import { Fragment } from "preact";
 import { Head } from "$fresh/runtime.ts";
 import { Handlers, PageProps } from "$fresh/server.ts";
-import { CodePoint, parseCodePoint, stringifyCodePoint } from "../../lib/codepoint.ts";
-import { readCodePoint } from "../../lib/db/read.ts";
+import { Codepoint, parseCodepoint, stringifyCodepoint } from "../../lib/codepoint.ts";
+import { readCharData } from "../../lib/db/read.ts";
 import { dbPool } from "../../lib/db/pool.ts";
 import { GeneralCategoryAbbr } from "../../lib/ucd/parser.ts";
-import { CompressedCodePointData, expandFlags } from "../../lib/flags.ts";
-import { codepointTags } from "../../lib/tag.ts";
+import { CompressedCharData, expandFlags } from "../../lib/flags.ts";
+import { charTags } from "../../lib/tag.ts";
 
-export type CodePointPageData = {
-  codepoint: CodePoint;
-  codepointData: CompressedCodePointData;
+export type CharPageData = {
+  codepoint: Codepoint;
+  charData: CompressedCharData;
 };
 
-export const handler: Handlers<CodePointPageData> = {
+export const handler: Handlers<CharPageData> = {
   async GET(_req, ctx) {
     const { codepoint: codepointText } = ctx.params;
-    const codepoint = parseCodePoint(codepointText);
+    const codepoint = parseCodepoint(codepointText);
     if (codepoint == null) {
       return ctx.renderNotFound();
     }
 
-    const normalizedCodepoint = stringifyCodePoint(codepoint);
+    const normalizedCodepoint = stringifyCodepoint(codepoint);
     if (normalizedCodepoint !== codepointText) {
       return new Response(null, { status: 301, headers: { Location: `/cp/${normalizedCodepoint}` } });
     }
 
     await using dbBorrow = await dbPool.take();
     const db = dbBorrow.resource;
-    const codepointData = await readCodePoint(db, codepoint.codepoint);
-    return ctx.render({ codepoint, codepointData });
+    const charData = await readCharData(db, codepoint.codepoint);
+    return ctx.render({ codepoint, charData });
   },
 };
 
 const NON_PRINTABLE_CATEGORIES = new Set<GeneralCategoryAbbr>(["Cc", "Cf", "Cs", "Co", "Cn"]);
 
-export default function CodepointPage(page: PageProps<CodePointPageData>) {
-  const { codepoint, codepointData: compressedCodePointData } = page.data;
-  const codepointData = expandFlags(compressedCodePointData);
+export default function CodepointPage(page: PageProps<CharPageData>) {
+  const { codepoint, charData: compressedCharData } = page.data;
+  const charData = expandFlags(compressedCharData);
 
   const printableValue =
-    NON_PRINTABLE_CATEGORIES.has(codepointData.generalCategory)
+    NON_PRINTABLE_CATEGORIES.has(charData.generalCategory)
       ? undefined
       : String.fromCodePoint(codepoint.codepoint);
 
-  const tags = codepointTags(codepointData);
+  const tags = charTags(charData);
   const tagsByTagCategory = new Map<string, string[]>();
   for (const tag of tags) {
     const tagCategoryName = tagCategory(tag);
@@ -59,11 +59,11 @@ export default function CodepointPage(page: PageProps<CodePointPageData>) {
   return (
     <>
       <Head>
-        <title>{stringifyCodePoint(codepoint)}{" "}{codepointData.name}{printableValue && ` - ${printableValue}`}</title>
+        <title>{stringifyCodepoint(codepoint)}{" "}{charData.name}{printableValue && ` - ${printableValue}`}</title>
       </Head>
       <div class="px-4 py-8 mx-auto bg-emerald-50 text-zinc-800">
         <div class="max-w-screen-md mx-auto flex flex-col items-center justify-center">
-          <h1 class="text-4xl font-bold">{stringifyCodePoint(codepoint)}{" "}{codepointData.name}</h1>
+          <h1 class="text-4xl font-bold">{stringifyCodepoint(codepoint)}{" "}{charData.name}</h1>
           <p class="text-9xl my-4 size-32 rounded border-2 border-stone-200 border-solid bg-stone-50 grid grid-cols-1">
             <span class="text-center align-middle">
               {printableValue}
